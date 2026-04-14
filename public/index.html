@@ -8228,6 +8228,18 @@ function generateMicroEncounter() {
 //  PRO AUTH  (Supabase sign-in / sign-up / subscription)
 // ═══════════════════════════════════════════════════════════
 
+// Waits up to 8s for pro-client.js module to set window.Pro
+function _waitForPro(timeoutMs = 8000) {
+  if (window.Pro) return Promise.resolve(true);
+  return new Promise(resolve => {
+    const start = Date.now();
+    const t = setInterval(() => {
+      if (window.Pro) { clearInterval(t); resolve(true); }
+      else if (Date.now() - start > timeoutMs) { clearInterval(t); resolve(false); }
+    }, 100);
+  });
+}
+
 function openProAuthModal(tab) {
   proAuthTab(tab || 'signin');
   document.getElementById('pro-auth-modal').style.display = 'flex';
@@ -8248,7 +8260,10 @@ async function proDoSignIn() {
   const password = document.getElementById('pro-si-password').value;
   const status   = document.getElementById('pro-si-status');
   if (!email || !password) { status.textContent = '⚠ Email and password required.'; status.style.color='var(--red2)'; return; }
-  status.textContent = 'Signing in…'; status.style.color='var(--text3)';
+  status.textContent = 'Connecting…'; status.style.color='var(--text3)';
+  const ready = await _waitForPro();
+  if (!ready) { status.textContent = '⚠ Could not load Pro module. Try refreshing.'; status.style.color='var(--red2)'; return; }
+  status.textContent = 'Signing in…';
   try {
     await Pro.signIn(email, password);
     status.textContent = '✓ Signed in!'; status.style.color='var(--green2)';
@@ -8266,7 +8281,10 @@ async function proDoSignUp() {
   const status   = document.getElementById('pro-su-status');
   if (!email || !password) { status.textContent = '⚠ Email and password required.'; status.style.color='var(--red2)'; return; }
   if (password.length < 8) { status.textContent = '⚠ Password must be at least 8 characters.'; status.style.color='var(--red2)'; return; }
-  status.textContent = 'Creating account…'; status.style.color='var(--text3)';
+  status.textContent = 'Connecting…'; status.style.color='var(--text3)';
+  const ready = await _waitForPro();
+  if (!ready) { status.textContent = '⚠ Could not load Pro module. Try refreshing.'; status.style.color='var(--red2)'; return; }
+  status.textContent = 'Creating account…';
   try {
     await Pro.signUp(email, password);
     status.textContent = '✓ Account created! Check your email to confirm, then sign in.';
