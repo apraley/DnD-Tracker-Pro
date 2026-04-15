@@ -17,7 +17,7 @@ var CONFIG = {
 var SYNC_VERSION = '1.0.0';
 var DEBOUNCE_MS  = 600; // ms to wait before sending initiative updates
 
-// ── HTTP helper (Roll20 sandbox has no fetch, only XHR) ──────────────────────
+// ── HTTP helper — tries fetch first (newer sandbox), falls back to XHR ───────
 function post(type, data) {
   if (!state.DndTrackerSync || !state.DndTrackerSync.enabled) return;
 
@@ -30,18 +30,34 @@ function post(type, data) {
     timestamp:  Date.now()
   });
 
-  try {
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST', CONFIG.webhookUrl, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState === 4 && xhr.status !== 200) {
-        log('[R20Sync] Webhook error ' + xhr.status + ': ' + xhr.responseText);
-      }
-    };
-    xhr.send(payload);
-  } catch (e) {
-    log('[R20Sync] XHR error: ' + e);
+  if (typeof fetch !== 'undefined') {
+    // Modern Roll20 sandbox (2024+) supports fetch
+    fetch(CONFIG.webhookUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    payload
+    }).then(function(r) {
+      if (!r.ok) log('[R20Sync] Webhook error: ' + r.status);
+    }).catch(function(e) {
+      log('[R20Sync] Fetch error: ' + e);
+    });
+  } else if (typeof XMLHttpRequest !== 'undefined') {
+    // Older Roll20 sandbox
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', CONFIG.webhookUrl, true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4 && xhr.status !== 200) {
+          log('[R20Sync] Webhook error ' + xhr.status + ': ' + xhr.responseText);
+        }
+      };
+      xhr.send(payload);
+    } catch (e) {
+      log('[R20Sync] XHR error: ' + e);
+    }
+  } else {
+    log('[R20Sync] No HTTP method available — check Roll20 sandbox version.');
   }
 }
 
