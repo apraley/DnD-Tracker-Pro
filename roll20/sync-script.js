@@ -17,7 +17,7 @@ var CONFIG = {
 var SYNC_VERSION = '1.0.0';
 var DEBOUNCE_MS  = 600; // ms to wait before sending initiative updates
 
-// ── HTTP helper — tries fetch, XHR, then Node https module ───────────────────
+// ── HTTP helper — tries every known method for Roll20 sandboxes ───────────────
 function post(type, data) {
   if (!state.DndTrackerSync || !state.DndTrackerSync.enabled) return;
 
@@ -30,59 +30,78 @@ function post(type, data) {
     timestamp:  Date.now()
   });
 
-  // 1) fetch (newer Roll20 sandbox)
-  if (typeof fetch !== 'undefined') {
-    fetch(CONFIG.webhookUrl, {
+  // Resolve HTTP primitives — Roll20 sandboxes expose these in different places
+  // depending on the campaign's sandbox version. Check both the direct global
+  // scope and the Node.js `global` object.
+  var _fetch = null, _XHR = null, _https = null;
+
+  try { if (typeof fetch === 'function')           _fetch = fetch;           } catch(e) {}
+  try { if (!_fetch && typeof global !== 'undefined' &&
+            typeof global.fetch === 'function')    _fetch = global.fetch;    } catch(e) {}
+
+  try { if (typeof XMLHttpRequest === 'function')  _XHR = XMLHttpRequest;    } catch(e) {}
+  try { if (!_XHR && typeof global !== 'undefined' &&
+            typeof global.XMLHttpRequest === 'function') _XHR = global.XMLHttpRequest; } catch(e) {}
+
+  try { _https = require('https'); }                                           catch(e) {}
+  try { if (!_https && typeof global !== 'undefined' &&
+            typeof global.require === 'function')  _https = global.require('https'); } catch(e) {}
+
+  // 1) fetch
+  if (_fetch) {
+    _fetch(CONFIG.webhookUrl, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    payload
     }).then(function(r) {
       if (!r.ok) log('[R20Sync] fetch error: ' + r.status);
-      else log('[R20Sync] sent via fetch: ' + type);
+      else       log('[R20Sync] sent via fetch: ' + type);
     }).catch(function(e) {
       log('[R20Sync] fetch failed: ' + e);
     });
     return;
   }
 
-  // 2) XMLHttpRequest (older sandbox)
-  if (typeof XMLHttpRequest !== 'undefined') {
+  // 2) XMLHttpRequest
+  if (_XHR) {
     try {
-      var xhr = new XMLHttpRequest();
+      var xhr = new _XHR();
       xhr.open('POST', CONFIG.webhookUrl, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.onreadystatechange = function () {
+      xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
           if (xhr.status === 200) log('[R20Sync] sent via XHR: ' + type);
-          else log('[R20Sync] XHR error ' + xhr.status);
+          else                    log('[R20Sync] XHR error ' + xhr.status);
         }
       };
       xhr.send(payload);
-    } catch (e) { log('[R20Sync] XHR error: ' + e); }
+    } catch(e) { log('[R20Sync] XHR error: ' + e); }
     return;
   }
 
-  // 3) Node.js https module (Roll20 sandboxed Node environment)
-  try {
-    var https   = require('https');
-    var urlParts = CONFIG.webhookUrl.replace('https://', '').split('/');
-    var hostname = urlParts.shift();
-    var path     = '/' + urlParts.join('/');
-    var options  = {
-      hostname: hostname,
-      path:     path,
-      method:   'POST',
-      headers:  { 'Content-Type': 'application/json', 'Content-Length': payload.length }
-    };
-    var req = https.request(options, function(res) {
-      log('[R20Sync] https.request status: ' + res.statusCode + ' type: ' + type);
-    });
-    req.on('error', function(e) { log('[R20Sync] https.request error: ' + e); });
-    req.write(payload);
-    req.end();
-  } catch(e) {
-    log('[R20Sync] No HTTP method available: ' + e);
+  // 3) Node.js https module
+  if (_https) {
+    try {
+      var urlParts = CONFIG.webhookUrl.replace('https://', '').split('/');
+      var hostname = urlParts.shift();
+      var path     = '/' + urlParts.join('/');
+      var options  = {
+        hostname: hostname,
+        path:     path,
+        method:   'POST',
+        headers:  { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+      };
+      var req = _https.request(options, function(res) {
+        log('[R20Sync] https status: ' + res.statusCode + ' (' + type + ')');
+      });
+      req.on('error', function(e) { log('[R20Sync] https error: ' + e); });
+      req.write(payload);
+      req.end();
+    } catch(e) { log('[R20Sync] https error: ' + e); }
+    return;
   }
+
+  log('[R20Sync] No HTTP method found. Run !r20sync debug to diagnose.');
 }
 
 // ── Attribute helpers ─────────────────────────────────────────────────────────
@@ -266,9 +285,24 @@ on('ready', function () {
         sendChat('D&D Tracker', '/w ' + who + ' 🤝 Handshake sent to D&D Tracker Pro.');
         break;
 
+      case 'debug':
+        var hasFetch  = (function(){ try { return typeof fetch === 'function' || (typeof global !== 'undefined' && typeof global.fetch === 'function'); } catch(e){ return false; } })();
+        var hasXHR    = (function(){ try { return typeof XMLHttpRequest === 'function' || (typeof global !== 'undefined' && typeof global.XMLHttpRequest === 'function'); } catch(e){ return false; } })();
+        var hasHttps  = (function(){ try { require('https'); return true; } catch(e){ try { return typeof global !== 'undefined' && typeof global.require === 'function'; } catch(e2){ return false; } } })();
+        var hasGlobal = (function(){ try { return typeof global !== 'undefined'; } catch(e){ return false; } })();
+        sendChat('D&D Tracker', '/w ' + who +
+          ' 🔍 Sandbox debug:' +
+          ' fetch=' + hasFetch +
+          ' | XHR=' + hasXHR +
+          ' | https=' + hasHttps +
+          ' | global=' + hasGlobal +
+          ' | Node=' + (typeof process !== 'undefined') +
+          ' | v' + SYNC_VERSION);
+        break;
+
       default:
         sendChat('D&D Tracker', '/w ' + who +
-          ' Commands: <b>!r20sync</b> [full | on | off | status | handshake]');
+          ' Commands: <b>!r20sync</b> [full | on | off | status | handshake | debug]');
     }
   });
 

@@ -8480,22 +8480,27 @@ function _r20ApplyInitiative(list) {
 
 // ── Apply full character sync ─────────────────────────────────────────────────
 function _r20ApplyFullSync(chars) {
-  let changed = false;
+  // Remove any previously Roll20-synced combatants, keep manual ones
+  S.combat.combatants = S.combat.combatants.filter(cb => !cb._r20);
+
+  if (!chars.length) { save(); renderBattle(); return; }
+
   chars.forEach(rc => {
     const name = (rc.name || '').trim();
     if (!name) return;
+    // If a manual combatant with this name already exists, update it in-place
     let c = S.combat.combatants.find(cb => cb.name.toLowerCase() === name.toLowerCase());
     if (c) {
-      // Update existing combatant
       if (rc.hp    != null) c.currentHp = parseInt(rc.hp)    || c.currentHp;
       if (rc.hpMax != null && rc.hpMax > 0) c.maxHp = parseInt(rc.hpMax);
       if (rc.ac    != null) c.ac        = parseInt(rc.ac)    || c.ac;
+      c._r20 = true; // mark so next full_sync can replace it
     } else {
-      // Auto-create combatant from Roll20 character data
       const maxHp = parseInt(rc.hpMax) || parseInt(rc.hp) || 1;
       S.combat.combatants.push({
         id:           uid(),
         name,
+        _r20:         true,   // ← marks this as Roll20-sourced
         type:         rc.isPlayer ? 'player' : 'npc',
         initiative:   0,
         maxHp,
@@ -8515,9 +8520,8 @@ function _r20ApplyFullSync(chars) {
         player:       rc.player || ''
       });
     }
-    changed = true;
   });
-  if (changed) { save(); renderBattle(); }
+  save(); renderBattle();
 }
 
 // ── Visual flash on updated combatant ────────────────────────────────────────

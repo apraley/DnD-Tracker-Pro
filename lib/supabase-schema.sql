@@ -135,3 +135,46 @@ begin
     alter publication supabase_realtime add table public.roll20_sync;
   end if;
 end $$;
+
+-- ============================================================
+-- PUBLIC Roll20 Sync (free version — no auth required)
+-- ============================================================
+
+-- ── r20_public_sessions — stores secret hashes for free-tier pairing ─────────
+create table if not exists public.r20_public_sessions (
+  campaign_id  text primary key,
+  secret_hash  text not null,
+  created_at   timestamptz default now()
+);
+alter table public.r20_public_sessions enable row level security;
+-- Anon can read (needed for Realtime channel auth)
+create policy "anon read r20 public sessions"
+  on public.r20_public_sessions for select using (true);
+
+-- ── r20_public_sync — sync data rows, one per (campaign_id, type) ─────────────
+create table if not exists public.r20_public_sync (
+  campaign_id  text not null,
+  type         text not null,
+  data         jsonb not null default '{}',
+  updated_at   timestamptz default now(),
+  unique(campaign_id, type)
+);
+alter table public.r20_public_sync enable row level security;
+-- Anon can read (free version subscribes without auth)
+create policy "anon read r20 public sync"
+  on public.r20_public_sync for select using (true);
+
+create index if not exists idx_r20_public_sync_campaign on public.r20_public_sync(campaign_id, updated_at);
+
+-- ── Enable Realtime on r20_public_sync ───────────────────────
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+      and schemaname = 'public'
+      and tablename = 'r20_public_sync'
+  ) then
+    alter publication supabase_realtime add table public.r20_public_sync;
+  end if;
+end $$;
