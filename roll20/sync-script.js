@@ -17,7 +17,7 @@ var CONFIG = {
 var SYNC_VERSION = '1.0.0';
 var DEBOUNCE_MS  = 600; // ms to wait before sending initiative updates
 
-// ── HTTP helper — tries fetch first (newer sandbox), falls back to XHR ───────
+// ── HTTP helper — tries fetch, XHR, then Node https module ───────────────────
 function post(type, data) {
   if (!state.DndTrackerSync || !state.DndTrackerSync.enabled) return;
 
@@ -30,34 +30,58 @@ function post(type, data) {
     timestamp:  Date.now()
   });
 
+  // 1) fetch (newer Roll20 sandbox)
   if (typeof fetch !== 'undefined') {
-    // Modern Roll20 sandbox (2024+) supports fetch
     fetch(CONFIG.webhookUrl, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    payload
     }).then(function(r) {
-      if (!r.ok) log('[R20Sync] Webhook error: ' + r.status);
+      if (!r.ok) log('[R20Sync] fetch error: ' + r.status);
+      else log('[R20Sync] sent via fetch: ' + type);
     }).catch(function(e) {
-      log('[R20Sync] Fetch error: ' + e);
+      log('[R20Sync] fetch failed: ' + e);
     });
-  } else if (typeof XMLHttpRequest !== 'undefined') {
-    // Older Roll20 sandbox
+    return;
+  }
+
+  // 2) XMLHttpRequest (older sandbox)
+  if (typeof XMLHttpRequest !== 'undefined') {
     try {
       var xhr = new XMLHttpRequest();
       xhr.open('POST', CONFIG.webhookUrl, true);
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status !== 200) {
-          log('[R20Sync] Webhook error ' + xhr.status + ': ' + xhr.responseText);
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) log('[R20Sync] sent via XHR: ' + type);
+          else log('[R20Sync] XHR error ' + xhr.status);
         }
       };
       xhr.send(payload);
-    } catch (e) {
-      log('[R20Sync] XHR error: ' + e);
-    }
-  } else {
-    log('[R20Sync] No HTTP method available — check Roll20 sandbox version.');
+    } catch (e) { log('[R20Sync] XHR error: ' + e); }
+    return;
+  }
+
+  // 3) Node.js https module (Roll20 sandboxed Node environment)
+  try {
+    var https   = require('https');
+    var urlParts = CONFIG.webhookUrl.replace('https://', '').split('/');
+    var hostname = urlParts.shift();
+    var path     = '/' + urlParts.join('/');
+    var options  = {
+      hostname: hostname,
+      path:     path,
+      method:   'POST',
+      headers:  { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+    };
+    var req = https.request(options, function(res) {
+      log('[R20Sync] https.request status: ' + res.statusCode + ' type: ' + type);
+    });
+    req.on('error', function(e) { log('[R20Sync] https.request error: ' + e); });
+    req.write(payload);
+    req.end();
+  } catch(e) {
+    log('[R20Sync] No HTTP method available: ' + e);
   }
 }
 
