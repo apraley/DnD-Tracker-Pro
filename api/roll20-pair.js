@@ -86,13 +86,15 @@ export default async function handler(req, res) {
 
   // ── DELETE: remove pairing ────────────────────────────────────────────────
   if (req.method === 'DELETE') {
-    await supabase.from('roll20_sessions').delete().eq('user_id', user.id);
-    // Also wipe any buffered sync data for this user's campaign
+    // Fetch campaign_id BEFORE deleting so we can clean up roll20_sync
     const { data: s } = await supabase
       .from('roll20_sessions')
       .select('campaign_id')
       .eq('user_id', user.id)
       .single();
+
+    await supabase.from('roll20_sessions').delete().eq('user_id', user.id);
+
     if (s?.campaign_id) {
       await supabase.from('roll20_sync').delete().eq('campaign_id', s.campaign_id);
     }

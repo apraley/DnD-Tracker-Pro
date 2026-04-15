@@ -8484,13 +8484,38 @@ function _r20ApplyFullSync(chars) {
   chars.forEach(rc => {
     const name = (rc.name || '').trim();
     if (!name) return;
-    const c = S.combat.combatants.find(cb => cb.name.toLowerCase() === name.toLowerCase());
+    let c = S.combat.combatants.find(cb => cb.name.toLowerCase() === name.toLowerCase());
     if (c) {
+      // Update existing combatant
       if (rc.hp    != null) c.currentHp = parseInt(rc.hp)    || c.currentHp;
       if (rc.hpMax != null && rc.hpMax > 0) c.maxHp = parseInt(rc.hpMax);
       if (rc.ac    != null) c.ac        = parseInt(rc.ac)    || c.ac;
-      changed = true;
+    } else {
+      // Auto-create combatant from Roll20 character data
+      const maxHp = parseInt(rc.hpMax) || parseInt(rc.hp) || 1;
+      S.combat.combatants.push({
+        id:           uid(),
+        name,
+        type:         rc.isPlayer ? 'player' : 'npc',
+        initiative:   0,
+        maxHp,
+        currentHp:    rc.hp != null ? (parseInt(rc.hp) || 0) : maxHp,
+        ac:           parseInt(rc.ac) || 10,
+        cr:           null,
+        defeated:     false,
+        stats: {
+          str: rc.str || 10, dex: rc.dex || 10, con: rc.con || 10,
+          int: rc.int || 10, wis: rc.wis || 10, cha: rc.cha || 10
+        },
+        conditions:   [],
+        deathSaves:   { s: 0, f: 0 },
+        advantage:    false,
+        disadvantage: false,
+        inspiration:  false,
+        player:       rc.player || ''
+      });
     }
+    changed = true;
   });
   if (changed) { save(); renderBattle(); }
 }
