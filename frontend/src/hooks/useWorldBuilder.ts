@@ -36,54 +36,46 @@ export const useWorldBuilder = () => {
   };
 
   const generateLocalWorld = (params: WorldParams): World => {
-    const cities = [];
-    const cityCount = Math.min(10 + (params.civilizationAbundance! * 2), 30);
+    const cities: City[] = [];
+    const cityCount = Math.min(10 + ((params.civilizationAbundance || 5) * 2), 30);
+    const cityNames = ['Waterdeep', 'Neverwinter', 'Baldur\'s Gate', 'Candlekeep', 'Luskan', 'Triboar', 'Yartar', 'Everlund', 'Silverymoon', 'Sundabar'];
+    const govTypes = ['Monarchy', 'Democracy', 'Oligarchy', 'Theocracy', 'Merchant Republic'];
+    const economicFocuses = ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'];
 
     for (let i = 0; i < cityCount; i++) {
       cities.push({
         id: `city_${i}`,
-        name: ['Waterdeep', 'Neverwinter', 'Baldur\'s Gate', 'Candlekeep', 'Luskan', 'Triboar', 'Yartar', 'Everlund', 'Silverymoon', 'Sundabar'][i % 10],
+        name: cityNames[i % cityNames.length],
         population: Math.floor(Math.random() * 50000) + 5000,
         hex_x: Math.floor(Math.random() * 50),
         hex_y: Math.floor(Math.random() * 50),
-        governmentType: ['Monarchy', 'Democracy', 'Oligarchy', 'Theocracy', 'Merchant Republic'][Math.floor(Math.random() * 5)],
+        governmentType: govTypes[Math.floor(Math.random() * govTypes.length)],
         history: 'A city with a rich and storied past.',
         rulingFactions: [],
         criminalElements: 'Various underworld elements',
         notableCitizens: [],
-        economicFocus: ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'][Math.floor(Math.random() * 5)],
+        economicFocus: economicFocuses[Math.floor(Math.random() * economicFocuses.length)],
         discovered: false
-      });
+      } as City);
     }
 
-    const pois = [];
+    const pois: PointOfInterest[] = [];
     const poiCount = 20;
+    const poiNames = ['The Ancient Dungeon', 'Crystal Caverns', 'Lost Ruins', 'Sacred Shrine', 'Dragon\'s Peak'];
+    const poiTypes = ['dungeon', 'ruins', 'natural_wonder', 'shrine', 'settlement'];
 
     for (let i = 0; i < poiCount; i++) {
       pois.push({
         id: `poi_${i}`,
-        name: ['The Ancient Dungeon', 'Crystal Caverns', 'Lost Ruins', 'Sacred Shrine', 'Dragon\'s Peak'][i % 5],
-        type: ['dungeon', 'ruins', 'natural_wonder', 'shrine', 'settlement'][i % 5],
+        name: poiNames[i % poiNames.length],
+        type: poiTypes[i % poiTypes.length],
         hex_x: Math.floor(Math.random() * 50),
         hex_y: Math.floor(Math.random() * 50),
         dangerLevel: Math.floor(Math.random() * 20) + 1,
         description: 'A mysterious location waiting to be explored.',
         adventureHooks: [],
         discovered: false
-      });
-    }
-
-    const npcs = [];
-    for (let i = 0; i < 20; i++) {
-      npcs.push({
-        id: `npc_${i}`,
-        name: ['Aldric', 'Beatrice', 'Cassian', 'Delilah', 'Ezra'][i % 5],
-        type: 'npc',
-        race: 'Human',
-        alignment: 'Neutral Good',
-        description: 'An interesting character.',
-        influence: 'Has some local influence'
-      });
+      } as PointOfInterest);
     }
 
     return {
@@ -97,10 +89,10 @@ export const useWorldBuilder = () => {
       createdAt: new Date(),
       cities,
       pointsOfInterest: pois,
-      npcs,
+      npcs: [],
       factions: [],
       weatherPatterns: []
-    };
+    } as World;
   };
 
   const generateCityLore = async (cityName: string, civilization: number, magicLevel: number, age: number, mode: 'data_array' | 'claude_ai' = 'data_array') => {
