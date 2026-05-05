@@ -726,8 +726,15 @@ Write in an engaging, atmospheric style suitable for actual gameplay.`;
       return res.status(400).json({ error: 'Invalid entity type' });
     }
 
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(503).json({
+        error: 'API key not configured',
+        message: 'Set ANTHROPIC_API_KEY environment variable to enable lore generation'
+      });
+    }
+
     const message = await anthropic.messages.create({
-      model: 'claude-opus-4-7',
+      model: 'claude-3-5-sonnet-20241022',
       max_tokens: entityType === 'city' ? 2000 : 3000,
       messages: [{ role: 'user', content: prompt }]
     });

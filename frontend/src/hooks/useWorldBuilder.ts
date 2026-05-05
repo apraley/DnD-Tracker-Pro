@@ -1,6 +1,13 @@
 // Hook for world builder API interactions
 import { useState } from 'react';
 import { World, WorldParams, City, PointOfInterest } from '../types/world';
+import {
+  generateCityName,
+  generateDungeonName,
+  generatePOIName,
+  generateWonderName,
+  resetNameGenerator
+} from '../utils/nameGenerator';
 
 export const useWorldBuilder = () => {
   const [loading, setLoading] = useState(false);
@@ -36,16 +43,17 @@ export const useWorldBuilder = () => {
   };
 
   const generateLocalWorld = (params: WorldParams): World => {
+    resetNameGenerator();
+
     const cities: City[] = [];
     const cityCount = Math.min(10 + ((params.civilizationAbundance || 5) * 2), 30);
-    const cityNames = ['Waterdeep', 'Neverwinter', 'Baldur\'s Gate', 'Candlekeep', 'Luskan', 'Triboar', 'Yartar', 'Everlund', 'Silverymoon', 'Sundabar'];
     const govTypes = ['Monarchy', 'Democracy', 'Oligarchy', 'Theocracy', 'Merchant Republic'];
     const economicFocuses = ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'];
 
     for (let i = 0; i < cityCount; i++) {
       cities.push({
         id: `city_${i}`,
-        name: cityNames[i % cityNames.length],
+        name: generateCityName(),
         population: Math.floor(Math.random() * 50000) + 5000,
         hex_x: Math.floor(Math.random() * 50),
         hex_y: Math.floor(Math.random() * 50),
@@ -61,14 +69,24 @@ export const useWorldBuilder = () => {
 
     const pois: PointOfInterest[] = [];
     const poiCount = 20;
-    const poiNames = ['The Ancient Dungeon', 'Crystal Caverns', 'Lost Ruins', 'Sacred Shrine', 'Dragon\'s Peak'];
     const poiTypes = ['dungeon', 'ruins', 'natural_wonder', 'shrine', 'settlement'];
 
     for (let i = 0; i < poiCount; i++) {
+      let poiName: string;
+      const poiType = poiTypes[i % poiTypes.length];
+
+      if (poiType === 'dungeon') {
+        poiName = generateDungeonName();
+      } else if (poiType === 'natural_wonder') {
+        poiName = generateWonderName();
+      } else {
+        poiName = generatePOIName();
+      }
+
       pois.push({
         id: `poi_${i}`,
-        name: poiNames[i % poiNames.length],
-        type: poiTypes[i % poiTypes.length],
+        name: poiName,
+        type: poiType,
         hex_x: Math.floor(Math.random() * 50),
         hex_y: Math.floor(Math.random() * 50),
         dangerLevel: Math.floor(Math.random() * 20) + 1,
