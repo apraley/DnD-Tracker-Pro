@@ -29,6 +29,18 @@ export interface City {
   economicFocus: string;
   discovered: boolean;
   prosperity_index?: number;
+
+  // ExNovo Integration
+  exNovoMetadata?: {
+    totalPopulation?: number;
+    districtCount?: number;
+    phases?: Array<{ phase: string; description: string }>;
+    resources?: string[];
+  };
+  factions?: Faction[];
+  landmarks?: Array<{ id: string; name: string; description?: string }>;
+  generatedLore?: string;
+  donjonLayout?: string;
 }
 
 export interface PointOfInterest {
@@ -41,6 +53,21 @@ export interface PointOfInterest {
   description: string;
   adventureHooks: AdventureHook[];
   discovered: boolean;
+
+  // ExUmbra Integration
+  exUmbraMetadata?: {
+    size?: string;
+    difficulty?: string;
+    threatCount?: number;
+    rewardCount?: number;
+    aspectCount?: number;
+  };
+  aspects?: Array<{ id: string; name: string; category: string; description?: string }>;
+  inhabitants?: NPC[];
+  nearbyCity?: City;
+  cityConnections?: Array<{ cityId: string; distance: number }>;
+  generatedLore?: string;
+  donjonLayout?: string;
 }
 
 export interface AdventureHook {
@@ -69,6 +96,12 @@ export interface NPC {
   int?: number;
   wis?: number;
   cha?: number;
+
+  // Additional fields from ExNovo/ExUmbra
+  role?: string;
+  faction?: string;
+  factionOrigin?: string;
+  cityOrigin?: string;
 }
 
 export interface Faction {
@@ -81,6 +114,8 @@ export interface Faction {
   members: string[];
   rivals: string[];
   allies: string[];
+  influence?: number;
+  leader?: string;
 }
 
 export interface HistoricalEvent {
@@ -90,6 +125,8 @@ export interface HistoricalEvent {
   yearOccurred: number;
   severity: number;
   affectedLocations: string[];
+  type?: string;
+  rippleEffects?: string[];
 }
 
 export interface GenerationMetadata {
@@ -100,6 +137,9 @@ export interface GenerationMetadata {
   totalFactions: number;
   totalCommodities: number;
   totalTradeRoutes: number;
+  totalHistoricalEvents?: number;
+  citiesWithLayouts?: number;
+  dungeonsWithLayouts?: number;
 }
 
 export interface World {
@@ -119,6 +159,7 @@ export interface World {
   weatherPatterns: WeatherPattern[];
   historicalEvents?: HistoricalEvent[];
   generationMetadata?: GenerationMetadata;
+  mapVisualization?: string;
 }
 
 export interface WeatherPattern {

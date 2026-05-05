@@ -1,6 +1,10 @@
 // World Builder API Endpoint (All 5 Phases)
 const { createClient } = require('@supabase/supabase-js');
 const WorldGeneratorFull = require('./world-builder/generators/worldGeneratorFull');
+const ExNovoIntegration = require('./world-builder/generators/exNovoIntegration');
+const ExUmbraIntegration = require('./world-builder/generators/exUmbraIntegration');
+const ExUmbraNPCPlacement = require('./world-builder/generators/exUmbraNPCPlacement');
+const DonjonIntegration = require('./world-builder/generators/donjonIntegration');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
 const supabase = createClient(
@@ -64,6 +68,9 @@ module.exports = async (req, res) => {
       case 'getHistoricalEvents':
         return await getHistoricalEvents(req, res, params);
 
+      case 'generateHistoricalNarratives':
+        return await generateHistoricalNarratives(req, res, params);
+
       case 'queryWorldState':
         return await queryWorldState(req, res, params);
 
@@ -82,7 +89,7 @@ async function generateWorld(req, res, params) {
     const generator = new WorldGeneratorFull(seed);
 
     // Use full generator (includes all 5 phases)
-    const world = await generator.generateCompleteWorld({
+    let world = await generator.generateCompleteWorld({
       name: params.name,
       age: params.age,
       magicLevel: params.magicLevel,
@@ -92,12 +99,91 @@ async function generateWorld(req, res, params) {
       planeId: params.planeId
     });
 
+    // Integrate ExNovo system for cities
+    console.log('🏗️ Integrating ExNovo city-building system...');
+    const exNovoIntegration = new ExNovoIntegration(world, generator.seededRandom, process.env.ANTHROPIC_API_KEY);
+    const { cities: enhancedCities, npcs: cityNPCs } = exNovoIntegration.enhanceAllCities(world.cities);
+    world.cities = enhancedCities;
+    world.npcs = world.npcs || [];
+    world.npcs.push(...cityNPCs);
+    console.log(`✓ Enhanced ${world.cities.length} cities with ExNovo details and generated ${cityNPCs.length} city NPCs`);
+
+    // Integrate ExUmbra system for dungeons
+    console.log('🏚️ Integrating ExUmbra dungeon-generation system...');
+    const exUmbraIntegration = new ExUmbraIntegration(world, generator.seededRandom, process.env.ANTHROPIC_API_KEY);
+    const enhancedPOIs = exUmbraIntegration.enhanceAllDungeons(world.pointsOfInterest);
+
+    // Place NPCs in dungeons
+    const npcPlacement = new ExUmbraNPCPlacement(generator.seededRandom, world.cities, world.npcs);
+    const dungeonEnhancements = npcPlacement.placeDungeonInhabitants(enhancedPOIs, world.cities, world.npcs);
+
+    // Update POIs with inhabitants
+    enhancedPOIs.forEach(poi => {
+      if (dungeonEnhancements[poi.id]) {
+        poi.inhabitants = dungeonEnhancements[poi.id].inhabitants;
+        poi.nearbyCity = dungeonEnhancements[poi.id].nearbyCity;
+        poi.cityConnections = dungeonEnhancements[poi.id].cityConnections;
+        world.npcs.push(...poi.inhabitants);
+      }
+    });
+
+    world.pointsOfInterest = enhancedPOIs;
+    console.log(`✓ Enhanced ${world.pointsOfInterest.filter(p => p.type === 'dungeon' || p.type === 'ruins').length} dungeons with ExUmbra details`);
+
+    // Integrate donjon procedural layouts
+    console.log('🗺️ Fetching procedural layouts from donjon APIs...');
+    const donjon = new DonjonIntegration();
+
+    // Add town layouts to cities
+    for (let i = 0; i < world.cities.length; i++) {
+      try {
+        const layout = await donjon.generateTownLayout({
+          name: world.cities[i].name,
+          type: world.cities[i].governmentType?.toLowerCase() || 'settlement'
+        });
+        world.cities[i].donjonLayout = layout;
+      } catch (err) {
+        console.log(`⚠️ Could not fetch layout for ${world.cities[i].name}: ${err.message}`);
+      }
+    }
+
+    // Add dungeon layouts to POIs
+    for (let i = 0; i < world.pointsOfInterest.length; i++) {
+      if (['dungeon', 'ruins', 'cave', 'tomb', 'lair', 'fortress', 'crypt', 'temple', 'mine', 'vault'].includes(world.pointsOfInterest[i].type?.toLowerCase())) {
+        try {
+          const layout = await donjon.generateDungeonLayout({
+            name: world.pointsOfInterest[i].name,
+            type: world.pointsOfInterest[i].type,
+            size: world.pointsOfInterest[i].dangerLevel > 15 ? 'large' : world.pointsOfInterest[i].dangerLevel > 10 ? 'medium' : 'small'
+          });
+          world.pointsOfInterest[i].donjonLayout = layout;
+        } catch (err) {
+          console.log(`⚠️ Could not fetch layout for ${world.pointsOfInterest[i].name}: ${err.message}`);
+        }
+      }
+    }
+    console.log(`✓ Added procedural layouts to ${world.cities.length} cities and ${world.pointsOfInterest.filter(p => p.donjonLayout).length} dungeons`);
+
+    // Update metadata
+    world.generationMetadata = {
+      ...world.generationMetadata,
+      totalNPCs: world.npcs.length,
+      completionLevel: '100% - All 5 Phases + ExNovo + ExUmbra + Donjon Layouts',
+      exNovoIntegration: true,
+      exUmbraIntegration: true,
+      donjonIntegration: true,
+      citiesWithLayouts: world.cities.filter(c => c.donjonLayout).length,
+      dungeonsWithLayouts: world.pointsOfInterest.filter(p => p.donjonLayout).length
+    };
+
+    console.log('✅ World generation complete with ExNovo, ExUmbra, and Donjon integration!');
+
     return res.status(200).json({
       success: true,
       world,
       seed,
       completionLevel: world.generationMetadata.completionLevel,
-      message: 'Complete world generated with all 5 phases'
+      message: 'Complete world generated with all 5 phases + ExNovo + ExUmbra'
     });
   } catch (error) {
     console.error('Generation Error:', error);
@@ -428,6 +514,76 @@ async function getHistoricalEvents(req, res, params) {
     });
   } catch (error) {
     console.error('Historical Events Error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+// Generate Historical Narratives using ExUmbra narrative framework
+async function generateHistoricalNarratives(req, res, params) {
+  try {
+    const { world } = params;
+
+    if (!world || !world.historicalEvents || world.historicalEvents.length === 0) {
+      return res.status(400).json({ error: 'World must have historical events' });
+    }
+
+    // Generate narratives for historical events
+    const eventNarratives = [];
+
+    for (const event of world.historicalEvents) {
+      try {
+        const prompt = `Using the narrative framework from ExUmbra (a dungeon-generation system that emphasizes interconnected storytelling), write a vivid 150-200 word historical account of this world-shaping event:
+
+Event: ${event.title}
+Year: ${event.yearOccurred}
+Type: ${event.type}
+Severity: ${event.severity}/10
+Description: ${event.description}
+
+Create a narrative that explains:
+1. What led to this event
+2. The immediate consequences
+3. How it rippled through factions, cities, and economies
+4. The lasting impact on the world
+
+Make it dramatic, atmospheric, and suitable for D&D storytelling. Show how this single event created cascading consequences across the world.`;
+
+        const message = await anthropic.messages.create({
+          model: 'claude-opus-4-7',
+          max_tokens: 512,
+          messages: [{ role: 'user', content: prompt }]
+        });
+
+        const narrative = message.content[0].type === 'text' ? message.content[0].text : null;
+
+        eventNarratives.push({
+          eventId: event.id,
+          eventTitle: event.title,
+          narrativeWriteup: narrative,
+          generatedAt: new Date()
+        });
+
+        console.log(`✓ Generated narrative for event: ${event.title}`);
+      } catch (eventError) {
+        console.error(`Error generating narrative for ${event.title}:`, eventError.message);
+        eventNarratives.push({
+          eventId: event.id,
+          eventTitle: event.title,
+          narrativeWriteup: `[Narrative generation failed for: ${event.title}]`,
+          error: eventError.message
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      eventNarratives,
+      totalGenerated: eventNarratives.filter(n => !n.error).length,
+      totalFailed: eventNarratives.filter(n => n.error).length,
+      message: `Generated ${eventNarratives.filter(n => !n.error).length}/${world.historicalEvents.length} historical narratives`
+    });
+  } catch (error) {
+    console.error('Historical Narratives Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
