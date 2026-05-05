@@ -8,9 +8,13 @@ export const useWorldBuilder = () => {
   const [world, setWorld] = useState<World | null>(null);
 
   const generateMapImage = async (world: World, chatgptKey: string): Promise<string | null> => {
-    if (!chatgptKey) return null;
+    if (!chatgptKey) {
+      console.warn('No ChatGPT key provided for map generation');
+      return null;
+    }
 
     try {
+      console.log('Generating map with ChatGPT...');
       const prompt = `Create a detailed fantasy map visualization for this D&D world. Use ASCII art or describe a detailed map that shows:
 - Cities: ${world.cities.slice(0, 10).map(c => c.name).join(', ')}
 - Points of Interest: ${world.pointsOfInterest.slice(0, 10).map(p => p.name).join(', ')}
@@ -33,12 +37,14 @@ Create a beautiful, creative ASCII art map that would work as a visual represent
         })
       });
 
-      if (!response.ok) return null;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('ChatGPT API error:', errorData);
+        return null;
+      }
       const data = await response.json();
       const mapText = data.choices[0].message.content;
-
-      // Convert ASCII art to data URL for canvas rendering
-      // For now, return the text - we'll render it as canvas text
+      console.log('Map generated successfully:', mapText.substring(0, 100));
       return mapText;
     } catch (err) {
       console.error('Failed to generate map image:', err);

@@ -18,17 +18,25 @@ function App() {
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
+      console.log('Generating world with params:', params);
       const generatedWorld = await generateWorld(params);
+      console.log('World generated:', generatedWorld?.name);
 
       // Generate interactive map from ChatGPT if key is available
       if (apiKeys.chatgpt && generatedWorld) {
+        console.log('API key available, generating map...');
         const mapImg = await generateMapImage(generatedWorld, apiKeys.chatgpt);
         if (mapImg) {
+          console.log('Map image received, setting state');
           setMapImage(mapImg);
+        } else {
+          console.warn('No map image returned');
         }
 
         // Also generate the text visualization
         generateMapVisualization(generatedWorld);
+      } else {
+        console.warn('No ChatGPT key or world generated');
       }
     } catch (err) {
       console.error('Generation failed:', err);
