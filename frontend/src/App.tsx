@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import WorldGeneratorForm from './components/WorldGeneratorForm';
 import InteractiveMap from './components/InteractiveMap';
 import EntityDetailsModal from './components/EntityDetailsModal';
@@ -15,6 +15,20 @@ function App() {
   const [mapVisualization, setMapVisualization] = useState<string | null>(null);
   const [showMapViz, setShowMapViz] = useState(false);
   const [mapImage, setMapImage] = useState<string | null>(null);
+
+  // Load saved API keys from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('dnd_api_keys');
+    if (saved) {
+      try {
+        const keys = JSON.parse(saved);
+        setApiKeys(keys);
+        console.log('Loaded API keys from localStorage');
+      } catch (err) {
+        console.error('Failed to load API keys:', err);
+      }
+    }
+  }, []);
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
