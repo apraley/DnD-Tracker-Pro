@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import WorldGeneratorForm from './components/WorldGeneratorForm';
-import InteractiveMap from './components/InteractiveMap';
+import HexMap from './components/HexMap';
 import EntityDetailsModal from './components/EntityDetailsModal';
 import APISettings from './components/APISettings';
 import { useWorldBuilder } from './hooks/useWorldBuilder';
@@ -211,10 +211,10 @@ Make it creative, atmospheric, and helpful for a D&D campaign.`;
           {/* Main Content */}
           <div className="main-content">
             <div className="map-container">
-              <InteractiveMap
+              <HexMap
                 world={world}
-                mapImageUrl={mapImage}
-                onEntityClick={(entity) => setSelectedEntity(entity)}
+                onHexHover={(x, y) => setHoveredHex({ x, y })}
+                onHexClick={(entity) => setSelectedEntity(entity)}
               />
             </div>
 
