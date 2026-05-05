@@ -19,41 +19,54 @@ function App() {
   // Load saved API keys from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('dnd_api_keys');
+    console.log('Checking for saved API keys...', saved);
     if (saved) {
       try {
         const keys = JSON.parse(saved);
+        console.log('Loaded API keys from localStorage:', keys);
         setApiKeys(keys);
-        console.log('Loaded API keys from localStorage');
       } catch (err) {
         console.error('Failed to load API keys:', err);
       }
+    } else {
+      console.log('No saved API keys found');
     }
   }, []);
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
-      console.log('Generating world with params:', params);
+      console.log('=== WORLD GENERATION STARTED ===');
+      console.log('Params:', params);
+      console.log('Current apiKeys:', apiKeys);
+
       const generatedWorld = await generateWorld(params);
       console.log('World generated:', generatedWorld?.name);
 
       // Generate interactive map from ChatGPT if key is available
-      if (apiKeys.chatgpt && generatedWorld) {
-        console.log('API key available, generating map...');
+      console.log('Checking for ChatGPT key...');
+      console.log('apiKeys.chatgpt:', apiKeys.chatgpt);
+
+      if (apiKeys?.chatgpt && generatedWorld) {
+        console.log('✅ API key available, generating map...');
         const mapImg = await generateMapImage(generatedWorld, apiKeys.chatgpt);
         if (mapImg) {
-          console.log('Map image received, setting state');
+          console.log('✅ Map image received, setting state');
           setMapImage(mapImg);
         } else {
-          console.warn('No map image returned');
+          console.warn('❌ No map image returned from generateMapImage');
         }
 
         // Also generate the text visualization
+        console.log('Generating ChatGPT text visualization...');
         generateMapVisualization(generatedWorld);
       } else {
-        console.warn('No ChatGPT key or world generated');
+        console.warn('⚠️ Skipping map generation:', {
+          hasChatGptKey: !!apiKeys?.chatgpt,
+          hasWorld: !!generatedWorld
+        });
       }
     } catch (err) {
-      console.error('Generation failed:', err);
+      console.error('❌ Generation failed:', err);
     }
   };
 
