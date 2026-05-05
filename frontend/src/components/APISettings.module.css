@@ -24,7 +24,8 @@
 .panel {
   position: fixed;
   top: 60px;
-  left: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   border: 2px solid #d4af37;
   border-radius: 8px;
