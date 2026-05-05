@@ -208,7 +208,7 @@ Various treasures hidden throughout, with the greatest riches in the heart chamb
       ...city,
       donjonLayout: layout,
       layoutSource: layout.source,
-      layout Details: layout.layoutData
+      layoutDetails: layout.layoutData
     };
   }
 

@@ -5,7 +5,6 @@ import './AsyncLoreGenerator.css';
 interface AsyncLoreGeneratorProps {
   world: World;
   onLoreGenerated: (updatedWorld: World) => void;
-  apiKey?: string;
 }
 
 interface GenerationProgress {
@@ -61,11 +60,6 @@ export default function AsyncLoreGeneratorUI({ world, onLoreGenerated, apiKey }:
   };
 
   const startGeneration = async () => {
-    if (!apiKey) {
-      alert('Claude API key not configured. Please set it in API Settings.');
-      return;
-    }
-
     // Build queue
     const queue: Array<{ id: string; name: string; type: 'city' | 'dungeon'; data: City | PointOfInterest }> = [];
 
@@ -273,9 +267,9 @@ export default function AsyncLoreGeneratorUI({ world, onLoreGenerated, apiKey }:
                 <button
                   className="btn btn-primary start-btn"
                   onClick={startGeneration}
-                  disabled={noneSelected || !apiKey}
+                  disabled={noneSelected}
                 >
-                  {!apiKey ? '⚠️ Configure API Key First' : 'Start Generation'}
+                  Start Generation
                 </button>
               </>
             ) : (

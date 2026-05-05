@@ -7,10 +7,14 @@ const ExUmbraNPCPlacement = require('./world-builder/generators/exUmbraNPCPlacem
 const DonjonIntegration = require('./world-builder/generators/donjonIntegration');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// Initialize Supabase only if env vars are available
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+  );
+}
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
@@ -298,6 +302,13 @@ Write a 100-200 word description that captures the atmosphere, visual details, a
 
 async function saveWorld(req, res, params) {
   try {
+    if (!supabase) {
+      return res.status(503).json({
+        error: 'Database not configured for this deployment',
+        message: 'World data is available in memory during this session'
+      });
+    }
+
     const userId = req.headers['x-user-id'];
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -341,6 +352,13 @@ async function saveWorld(req, res, params) {
 
 async function getWorld(req, res, worldId) {
   try {
+    if (!supabase) {
+      return res.status(503).json({
+        error: 'Database not configured for this deployment',
+        message: 'Generate a new world or configure database access'
+      });
+    }
+
     const { data, error } = await supabase
       .from('worlds')
       .select('*')
@@ -363,6 +381,14 @@ async function getWorld(req, res, worldId) {
 
 async function listWorlds(req, res) {
   try {
+    if (!supabase) {
+      return res.status(200).json({
+        success: true,
+        worlds: [],
+        message: 'Database not configured - no saved worlds available'
+      });
+    }
+
     const userId = req.headers['x-user-id'];
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -388,6 +414,13 @@ async function listWorlds(req, res) {
 
 async function deleteWorld(req, res, worldId) {
   try {
+    if (!supabase) {
+      return res.status(503).json({
+        error: 'Database not configured for this deployment',
+        message: 'Cannot delete worlds without database access'
+      });
+    }
+
     const userId = req.headers['x-user-id'];
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
