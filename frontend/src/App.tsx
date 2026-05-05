@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import WorldGeneratorForm from './components/WorldGeneratorForm';
 import HexMap from './components/HexMap';
 import EntityDetailsModal from './components/EntityDetailsModal';

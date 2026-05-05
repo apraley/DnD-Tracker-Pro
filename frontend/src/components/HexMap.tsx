@@ -142,15 +142,6 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isDragging) {
-      const dx = e.clientX - dragStart.x;
-      const dy = e.clientY - dragStart.y;
-      setPan({ x: pan.x + dx, y: pan.y + dy });
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
-
   const handleMouseUp = () => {
     setIsDragging(false);
   };
@@ -210,7 +201,7 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
     setHoveredEntity(foundEntity || null);
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasClick = () => {
     if (hoveredEntity) {
       onHexClick(hoveredEntity);
     }

@@ -28,6 +28,7 @@ export interface City {
   notableCitizens: NPC[];
   economicFocus: string;
   discovered: boolean;
+  prosperity_index?: number;
 }
 
 export interface PointOfInterest {
@@ -82,6 +83,25 @@ export interface Faction {
   allies: string[];
 }
 
+export interface HistoricalEvent {
+  id: string;
+  title: string;
+  description: string;
+  yearOccurred: number;
+  severity: number;
+  affectedLocations: string[];
+}
+
+export interface GenerationMetadata {
+  completionLevel: string;
+  totalCities: number;
+  totalPOIs: number;
+  totalNPCs: number;
+  totalFactions: number;
+  totalCommodities: number;
+  totalTradeRoutes: number;
+}
+
 export interface World {
   id?: string;
   name: string;
@@ -97,6 +117,8 @@ export interface World {
   npcs: NPC[];
   factions: Faction[];
   weatherPatterns: WeatherPattern[];
+  historicalEvents?: HistoricalEvent[];
+  generationMetadata?: GenerationMetadata;
 }
 
 export interface WeatherPattern {
