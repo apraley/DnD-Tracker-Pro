@@ -20,28 +20,21 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  const [mapImage, setMapImage] = useState<string | null>(null);
   const [hoveredEntity, setHoveredEntity] = useState<City | PointOfInterest | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  // Load the map image
+  // Load the map image/text
   useEffect(() => {
     if (mapImageUrl) {
-      const img = new Image();
-      img.onload = () => {
-        setMapImage(img);
-        onMapImageLoad?.(mapImageUrl);
-      };
-      img.onerror = () => {
-        console.error('Failed to load map image');
-      };
-      img.src = mapImageUrl;
+      setMapImage(mapImageUrl);
+      onMapImageLoad?.(mapImageUrl);
     }
   }, [mapImageUrl, onMapImageLoad]);
 
   // Render the map
   useEffect(() => {
-    if (!canvasRef.current || !mapImage) return;
+    if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -56,10 +49,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
     ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
     ctx.scale(zoom, zoom);
 
-    // Draw the map image centered
-    const imgWidth = mapImage.width;
-    const imgHeight = mapImage.height;
-    ctx.drawImage(mapImage, -imgWidth / 2, -imgHeight / 2);
+    // Draw ASCII art map if available
+    if (mapImage && typeof mapImage === 'string') {
+      ctx.fillStyle = '#888';
+      ctx.font = '10px monospace';
+      ctx.textBaseline = 'top';
+
+      const lines = mapImage.split('\n');
+      let yOffset = -lines.length * 5;
+      lines.forEach((line) => {
+        ctx.fillText(line, -line.length * 3, yOffset);
+        yOffset += 12;
+      });
+    }
 
     // Draw city markers
     world.cities.forEach((city) => {
