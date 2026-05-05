@@ -40,6 +40,14 @@ function App() {
     link.click();
   };
 
+  const getPhaseInfo = () => {
+    if (!world) return '';
+    if (world.generationMetadata?.completionLevel === '100% - All 5 Phases') {
+      return '✅ All 5 Phases Complete';
+    }
+    return 'Phase 1 Complete';
+  };
+
   return (
     <div className="app">
       {!world ? (
@@ -51,6 +59,7 @@ function App() {
             <div className="header-content">
               <div className="world-info">
                 <h1>{world.name}</h1>
+                <div className="phase-badge">{getPhaseInfo()}</div>
                 <div className="world-stats">
                   <span>🕰️ Age: {world.age} years</span>
                   <span>✨ Magic: {world.magicLevel}/10</span>
@@ -58,6 +67,16 @@ function App() {
                   <span>🌍 Climate: {world.climate}</span>
                   <span>🏞️ Terrain: {world.terrain}</span>
                 </div>
+                {world.generationMetadata && (
+                  <div className="world-stats">
+                    <span>🎯 {world.generationMetadata.totalCities} Cities</span>
+                    <span>📍 {world.generationMetadata.totalPOIs} POIs</span>
+                    <span>👥 {world.generationMetadata.totalNPCs} NPCs</span>
+                    <span>🏛️ {world.generationMetadata.totalFactions} Factions</span>
+                    <span>📦 {world.generationMetadata.totalCommodities} Commodities</span>
+                    <span>🛤️ {world.generationMetadata.totalTradeRoutes} Trade Routes</span>
+                  </div>
+                )}
                 <div className="location-info">
                   {hoveredHex && (
                     <p>Hex ({hoveredHex.x}, {hoveredHex.y})</p>
@@ -88,31 +107,13 @@ function App() {
               />
             </div>
 
-            {/* Sidebar with Entity Lists */}
+            {/* Sidebar with Entity Lists & Info Tabs */}
             <div className="sidebar">
-              <div className="sidebar-section">
-                <h3>📍 Points of Interest ({world.pointsOfInterest.length})</h3>
-                <div className="entity-list">
-                  {world.pointsOfInterest.slice(0, 10).map((poi) => (
-                    <button
-                      key={poi.id}
-                      className="entity-item"
-                      onClick={() => setSelectedEntity(poi)}
-                    >
-                      <span className="entity-name">{poi.name}</span>
-                      <span className="entity-type">{poi.type}</span>
-                    </button>
-                  ))}
-                  {world.pointsOfInterest.length > 10 && (
-                    <p className="more-items">+{world.pointsOfInterest.length - 10} more</p>
-                  )}
-                </div>
-              </div>
-
+              {/* Cities Section */}
               <div className="sidebar-section">
                 <h3>🏰 Cities ({world.cities.length})</h3>
                 <div className="entity-list">
-                  {world.cities.slice(0, 10).map((city) => (
+                  {world.cities.slice(0, 8).map((city) => (
                     <button
                       key={city.id}
                       className="entity-item"
@@ -120,13 +121,79 @@ function App() {
                     >
                       <span className="entity-name">{city.name}</span>
                       <span className="entity-type">{city.governmentType}</span>
+                      {city.prosperity_index && (
+                        <span className="entity-meta">Prosperity: {city.prosperity_index}%</span>
+                      )}
                     </button>
                   ))}
-                  {world.cities.length > 10 && (
-                    <p className="more-items">+{world.cities.length - 10} more</p>
+                  {world.cities.length > 8 && (
+                    <p className="more-items">+{world.cities.length - 8} more</p>
                   )}
                 </div>
               </div>
+
+              {/* Points of Interest Section */}
+              <div className="sidebar-section">
+                <h3>📍 POIs ({world.pointsOfInterest.length})</h3>
+                <div className="entity-list">
+                  {world.pointsOfInterest.slice(0, 8).map((poi) => (
+                    <button
+                      key={poi.id}
+                      className="entity-item"
+                      onClick={() => setSelectedEntity(poi)}
+                    >
+                      <span className="entity-name">{poi.name}</span>
+                      <span className="entity-type">{poi.type}</span>
+                      {poi.dangerLevel && (
+                        <span className="entity-meta">Danger: {poi.dangerLevel}/20</span>
+                      )}
+                    </button>
+                  ))}
+                  {world.pointsOfInterest.length > 8 && (
+                    <p className="more-items">+{world.pointsOfInterest.length - 8} more</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Factions Section (Phase 2) */}
+              {world.factions && world.factions.length > 0 && (
+                <div className="sidebar-section">
+                  <h3>🏛️ Factions ({world.factions.length})</h3>
+                  <div className="entity-list">
+                    {world.factions.slice(0, 8).map((faction) => (
+                      <div
+                        key={faction.id}
+                        className="entity-item"
+                        title={faction.description}
+                      >
+                        <span className="entity-name">{faction.name}</span>
+                        <span className="entity-type">{faction.type}</span>
+                        <span className="entity-meta">{faction.alignment}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Historical Events (Phase 5) */}
+              {world.historicalEvents && world.historicalEvents.length > 0 && (
+                <div className="sidebar-section">
+                  <h3>📖 Events ({world.historicalEvents.length})</h3>
+                  <div className="entity-list">
+                    {world.historicalEvents.slice(0, 5).map((event) => (
+                      <div
+                        key={event.id}
+                        className="entity-item"
+                        title={event.description}
+                      >
+                        <span className="entity-name">{event.title}</span>
+                        <span className="entity-type">Year {event.yearOccurred}</span>
+                        <span className="entity-meta">Severity: {event.severity}/10</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
