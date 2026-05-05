@@ -7,31 +7,42 @@ export const useWorldBuilder = () => {
   const [error, setError] = useState<string | null>(null);
   const [world, setWorld] = useState<World | null>(null);
 
-  const generateWorld = async (params: WorldParams) => {
-    setLoading(true);
-    setError(null);
+  const generateMapImage = async (world: World, chatgptKey: string): Promise<string | null> => {
+    if (!chatgptKey) return null;
+
     try {
-      const response = await fetch('/api/world-builder', {
+      const prompt = `Create a detailed fantasy map visualization for this D&D world. Use ASCII art or describe a detailed map that shows:
+- Cities: ${world.cities.slice(0, 10).map(c => c.name).join(', ')}
+- Points of Interest: ${world.pointsOfInterest.slice(0, 10).map(p => p.name).join(', ')}
+- Terrain: ${world.terrain}
+- Climate: ${world.climate}
+
+Create a beautiful, creative ASCII art map that would work as a visual representation. Use these characters: ~ for water, # for mountains, . for plains, * for forests, ^ for peaks. Mark cities with @ and POIs with &. The map should be roughly 80x24 characters.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${chatgptKey}`
+        },
         body: JSON.stringify({
-          action: 'generate',
-          params
+          model: 'gpt-4-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.8
         })
       });
 
-      if (!response.ok) throw new Error('API not available, generating locally...');
+      if (!response.ok) return null;
       const data = await response.json();
-      setWorld(data.world);
-      return data.world;
+      const mapText = data.choices[0].message.content;
+
+      // Convert ASCII art to data URL for canvas rendering
+      // For now, return the text - we'll render it as canvas text
+      return mapText;
     } catch (err) {
-      // Fallback: Generate world locally
-      console.log('Using local world generation...');
-      const world = generateLocalWorld(params);
-      setWorld(world);
-      return world;
-    } finally {
-      setLoading(false);
+      console.error('Failed to generate map image:', err);
+      return null;
     }
   };
 
@@ -149,6 +160,7 @@ export const useWorldBuilder = () => {
     loading,
     error,
     generateWorld,
+    generateMapImage,
     generateCityLore,
     saveWorld
   };

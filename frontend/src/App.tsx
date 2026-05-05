@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import WorldGeneratorForm from './components/WorldGeneratorForm';
-import HexMap from './components/HexMap';
+import InteractiveMap from './components/InteractiveMap';
 import EntityDetailsModal from './components/EntityDetailsModal';
 import APISettings from './components/APISettings';
 import { useWorldBuilder } from './hooks/useWorldBuilder';
@@ -8,19 +8,26 @@ import { World, City, PointOfInterest, WorldParams } from './types/world';
 import './App.css';
 
 function App() {
-  const { world, loading, error, generateWorld } = useWorldBuilder();
+  const { world, loading, error, generateWorld, generateMapImage } = useWorldBuilder();
   const [selectedEntity, setSelectedEntity] = useState<City | PointOfInterest | null>(null);
   const [hoveredHex, setHoveredHex] = useState<{ x: number; y: number } | null>(null);
   const [apiKeys, setApiKeys] = useState<{ claude?: string; chatgpt?: string }>({});
   const [mapVisualization, setMapVisualization] = useState<string | null>(null);
   const [showMapViz, setShowMapViz] = useState(false);
+  const [mapImage, setMapImage] = useState<string | null>(null);
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
       const generatedWorld = await generateWorld(params);
 
-      // Auto-call ChatGPT for map visualization if key is available
+      // Generate interactive map from ChatGPT if key is available
       if (apiKeys.chatgpt && generatedWorld) {
+        const mapImg = await generateMapImage(generatedWorld, apiKeys.chatgpt);
+        if (mapImg) {
+          setMapImage(mapImg);
+        }
+
+        // Also generate the text visualization
         generateMapVisualization(generatedWorld);
       }
     } catch (err) {
@@ -169,10 +176,10 @@ Make it creative, atmospheric, and helpful for a D&D campaign.`;
           {/* Main Content */}
           <div className="main-content">
             <div className="map-container">
-              <HexMap
+              <InteractiveMap
                 world={world}
-                onHexHover={(x, y) => setHoveredHex({ x, y })}
-                onHexClick={(entity) => setSelectedEntity(entity)}
+                mapImageUrl={mapImage}
+                onEntityClick={(entity) => setSelectedEntity(entity)}
               />
             </div>
 
