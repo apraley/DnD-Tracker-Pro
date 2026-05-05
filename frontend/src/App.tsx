@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import WorldGeneratorForm from './components/WorldGeneratorForm';
 import HexMap from './components/HexMap';
 import EntityDetailsModal from './components/EntityDetailsModal';
+import APISettings from './components/APISettings';
 import { useWorldBuilder } from './hooks/useWorldBuilder';
 import { World, City, PointOfInterest, WorldParams } from './types/world';
 import './App.css';
@@ -10,12 +11,71 @@ function App() {
   const { world, loading, error, generateWorld } = useWorldBuilder();
   const [selectedEntity, setSelectedEntity] = useState<City | PointOfInterest | null>(null);
   const [hoveredHex, setHoveredHex] = useState<{ x: number; y: number } | null>(null);
+  const [apiKeys, setApiKeys] = useState<{ claude?: string; chatgpt?: string }>({});
+  const [mapVisualization, setMapVisualization] = useState<string | null>(null);
+  const [showMapViz, setShowMapViz] = useState(false);
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
-      await generateWorld(params);
+      const generatedWorld = await generateWorld(params);
+
+      // Auto-call ChatGPT for map visualization if key is available
+      if (apiKeys.chatgpt && generatedWorld) {
+        generateMapVisualization(generatedWorld);
+      }
     } catch (err) {
       console.error('Generation failed:', err);
+    }
+  };
+
+  const generateMapVisualization = async (world: World) => {
+    if (!apiKeys.chatgpt) {
+      console.log('ChatGPT API key not configured');
+      return;
+    }
+
+    try {
+      const prompt = `You are a D&D map visualization expert. Based on this world data, create a detailed map description and ASCII art representation:
+
+World: ${world.name}
+Age: ${world.age} years
+Magic Level: ${world.magicLevel}/10
+Civilization: ${world.civilizationAbundance}/10
+Climate: ${world.climate}
+Terrain: ${world.terrain}
+
+Cities (${world.cities.length}): ${world.cities.slice(0, 5).map(c => c.name).join(', ')}${world.cities.length > 5 ? '...' : ''}
+
+Points of Interest (${world.pointsOfInterest.length}): ${world.pointsOfInterest.slice(0, 5).map(p => p.name).join(', ')}${world.pointsOfInterest.length > 5 ? '...' : ''}
+
+Create:
+1. A vivid text description of what this world looks like
+2. An ASCII or text-based map representation (using simple characters)
+3. Geographic features and landmarks placement
+
+Make it creative, atmospheric, and helpful for a D&D campaign.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKeys.chatgpt}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.8
+        })
+      });
+
+      if (!response.ok) throw new Error('ChatGPT API failed');
+      const data = await response.json();
+      const visualization = data.choices[0].message.content;
+      setMapVisualization(visualization);
+      setShowMapViz(true);
+    } catch (err) {
+      console.error('Map visualization failed:', err);
     }
   };
 
@@ -50,6 +110,15 @@ function App() {
 
   return (
     <div className="app">
+      <div className="top-bar">
+        <APISettings onSettingsChange={setApiKeys} />
+        {mapVisualization && (
+          <button className="btn btn-secondary" onClick={() => setShowMapViz(true)}>
+            🗺️ View Map Visualization
+          </button>
+        )}
+      </div>
+
       {!world ? (
         <WorldGeneratorForm onGenerate={handleGenerateWorld} isLoading={loading} />
       ) : (
@@ -199,6 +268,33 @@ function App() {
 
           {/* Entity Details Modal */}
           <EntityDetailsModal entity={selectedEntity} onClose={() => setSelectedEntity(null)} />
+
+          {/* Map Visualization Modal */}
+          {showMapViz && mapVisualization && (
+            <div className="modal-overlay" onClick={() => setShowMapViz(false)}>
+              <div className="map-viz-modal" onClick={(e) => e.stopPropagation()}>
+                <button className="close-btn" onClick={() => setShowMapViz(false)}>✕</button>
+                <h2>🗺️ World Map Visualization</h2>
+                <div className="map-viz-content">
+                  <pre>{mapVisualization}</pre>
+                </div>
+                <button className="pop-out-btn" onClick={() => {
+                  const win = window.open('', 'mapvis', 'width=1200,height=800');
+                  if (win) {
+                    win.document.write(`
+                      <html><head><title>Map Visualization</title></head>
+                      <body style="background: #1a1a2e; color: #d4af37; font-family: monospace; padding: 20px; overflow-y: auto;">
+                        <h1>${world?.name} - World Map</h1>
+                        <pre style="white-space: pre-wrap; word-wrap: break-word;">${mapVisualization}</pre>
+                      </body></html>
+                    `);
+                  }
+                }}>
+                  📤 Pop Out
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

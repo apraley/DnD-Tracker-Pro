@@ -13,6 +13,10 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredEntity, setHoveredEntity] = useState<City | PointOfInterest | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const HEX_SIZE = 30;
   const HEX_PADDING = 2;
@@ -98,33 +102,57 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
     ctx.fillStyle = '#E8F4F8';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    // Apply transformations
+    ctx.save();
+    ctx.translate(canvas.width / 2 + pan.x, canvas.height / 2 + pan.y);
+    ctx.scale(zoom, zoom);
+
     // Draw hex grid
     for (let x = 0; x < 52; x++) {
       for (let y = 0; y < 52; y++) {
         const { pixelX, pixelY } = hexToPixel(x, y);
-        const canvasX = pixelX + canvas.width / 2;
-        const canvasY = pixelY + canvas.height / 2;
-
-        // Draw hex background
-        drawHex(ctx, canvasX, canvasY, HEX_SIZE - HEX_PADDING, '#E8F4F8');
+        drawHex(ctx, pixelX, pixelY, HEX_SIZE - HEX_PADDING, '#E8F4F8');
       }
     }
 
     // Draw cities
     world.cities.forEach((city) => {
       const { pixelX, pixelY } = hexToPixel(city.hex_x, city.hex_y);
-      const canvasX = pixelX + canvas.width / 2;
-      const canvasY = pixelY + canvas.height / 2;
-      drawCityIcon(ctx, canvasX, canvasY);
+      drawCityIcon(ctx, pixelX, pixelY);
     });
 
     // Draw POIs
     world.pointsOfInterest.forEach((poi) => {
       const { pixelX, pixelY } = hexToPixel(poi.hex_x, poi.hex_y);
-      const canvasX = pixelX + canvas.width / 2;
-      const canvasY = pixelY + canvas.height / 2;
-      drawPOIIcon(ctx, canvasX, canvasY, poi.type);
+      drawPOIIcon(ctx, pixelX, pixelY, poi.type);
     });
+
+    ctx.restore();
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const zoomFactor = 0.1;
+    const newZoom = e.deltaY < 0 ? zoom + zoomFactor : Math.max(0.5, zoom - zoomFactor);
+    setZoom(newZoom);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDragging) {
+      const dx = e.clientX - dragStart.x;
+      const dy = e.clientY - dragStart.y;
+      setPan({ x: pan.x + dx, y: pan.y + dy });
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
   };
 
   useEffect(() => {
@@ -181,6 +209,13 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
 
   return (
     <div className={styles.container}>
+      <div className={styles.controls}>
+        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>🏠 Reset</button>
+        <button onClick={() => setZoom(Math.min(zoom + 0.2, 3))}>🔍+ Zoom In</button>
+        <button onClick={() => setZoom(Math.max(zoom - 0.2, 0.5))}>🔍- Zoom Out</button>
+        <span className={styles.zoomLevel}>{Math.round(zoom * 100)}%</span>
+      </div>
+
       <canvas
         ref={canvasRef}
         width={1000}
@@ -188,6 +223,12 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
         className={styles.canvas}
         onMouseMove={handleCanvasMouseMove}
         onClick={handleCanvasClick}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       />
 
       {hoveredEntity && (
