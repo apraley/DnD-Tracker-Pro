@@ -37,59 +37,62 @@ const APISettings: React.FC<APISettingsProps> = ({ onSettingsChange }) => {
     <div className={styles.container}>
       <button
         className={styles.settingsBtn}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         title="API Settings"
       >
         ⚙️ {hasKeys ? '✓' : ''} API Keys
       </button>
 
       {isOpen && (
-        <div className={styles.panel}>
-          <h3>🔑 API Configuration</h3>
+        <div className={styles.modalOverlay} onClick={() => setIsOpen(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <button className={styles.closeBtn} onClick={() => setIsOpen(false)}>✕</button>
+            <h2>🔑 API Configuration</h2>
 
-          <div className={styles.inputGroup}>
-            <label>Claude API Key</label>
-            <div className={styles.inputWrapper}>
-              <input
-                type={showKeys ? 'text' : 'password'}
-                value={claudeKey}
-                onChange={(e) => setClaudeKey(e.target.value)}
-                placeholder="sk-ant-..."
-              />
-              {claudeKey && <span className={styles.checkmark}>✓</span>}
+            <div className={styles.inputGroup}>
+              <label>Claude API Key</label>
+              <div className={styles.inputWrapper}>
+                <input
+                  type={showKeys ? 'text' : 'password'}
+                  value={claudeKey}
+                  onChange={(e) => setClaudeKey(e.target.value)}
+                  placeholder="sk-ant-..."
+                />
+                {claudeKey && <span className={styles.checkmark}>✓</span>}
+              </div>
+              <small>For lore generation and world descriptions</small>
             </div>
-            <small>For lore generation and world descriptions</small>
-          </div>
 
-          <div className={styles.inputGroup}>
-            <label>ChatGPT API Key</label>
-            <div className={styles.inputWrapper}>
-              <input
-                type={showKeys ? 'text' : 'password'}
-                value={chatgptKey}
-                onChange={(e) => setChatgptKey(e.target.value)}
-                placeholder="sk-..."
-              />
-              {chatgptKey && <span className={styles.checkmark}>✓</span>}
+            <div className={styles.inputGroup}>
+              <label>ChatGPT API Key</label>
+              <div className={styles.inputWrapper}>
+                <input
+                  type={showKeys ? 'text' : 'password'}
+                  value={chatgptKey}
+                  onChange={(e) => setChatgptKey(e.target.value)}
+                  placeholder="sk-..."
+                />
+                {chatgptKey && <span className={styles.checkmark}>✓</span>}
+              </div>
+              <small>For map visualization and image generation</small>
             </div>
-            <small>For map visualization and image generation</small>
-          </div>
 
-          <div className={styles.actions}>
-            <button
-              className={styles.toggleBtn}
-              onClick={() => setShowKeys(!showKeys)}
-            >
-              {showKeys ? '🙈 Hide' : '👁️ Show'} Keys
-            </button>
-            <button className={styles.saveBtn} onClick={handleSave}>
-              💾 Save Keys
-            </button>
-          </div>
+            <div className={styles.actions}>
+              <button
+                className={styles.toggleBtn}
+                onClick={() => setShowKeys(!showKeys)}
+              >
+                {showKeys ? '🙈 Hide' : '👁️ Show'} Keys
+              </button>
+              <button className={styles.saveBtn} onClick={handleSave}>
+                💾 Save Keys
+              </button>
+            </div>
 
-          <p className={styles.disclaimer}>
-            ⚠️ Keys are stored locally in your browser. Never share them.
-          </p>
+            <p className={styles.disclaimer}>
+              ⚠️ Keys are stored locally in your browser. Never share them.
+            </p>
+          </div>
         </div>
       )}
     </div>
