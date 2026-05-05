@@ -162,89 +162,27 @@ export default function AsyncLoreGeneratorUI({ world, onLoreGenerated, apiKey }:
   };
 
   const generateLore = async (_name: string, type: 'city' | 'dungeon', entityData: City | PointOfInterest, world: World): Promise<string> => {
-    let prompt = '';
-
-    if (type === 'city') {
-      const city = entityData as City;
-      prompt = `You are a master storyteller for D&D worlds. Create a rich, detailed historical write-up of ${city.name}.
-
-CITY DATA:
-- Government: ${city.governmentType || 'Unknown'}
-- Population: ${city.exNovoMetadata?.totalPopulation || city.population || 'Unknown'}
-- Districts: ${city.exNovoMetadata?.districtCount || 0}
-- Factions: ${city.factions?.map(f => f.name).join(', ') || 'None'}
-- Landmarks: ${city.landmarks?.map(l => l.name).join(', ') || 'None'}
-- Notable Citizens: ${city.notableCitizens?.map(n => n.name).join(', ') || 'None'}
-
-WORLD CONTEXT:
-- World Age: ${world.age} years
-- Magic Level: ${world.magicLevel}/10
-- Civilization: ${world.civilizationAbundance}/10
-
-Write a 400-600 word historical narrative including:
-1. Foundation Story - How and why was this city founded?
-2. Early Development - How did the city grow?
-3. Major Events - What historical events shaped it?
-4. Current State - What is the city like now?
-5. The People - What are the citizens like?
-6. Secrets & Mysteries - What lurks in ${city.name}?
-7. Adventure Hooks - What would bring adventurers here?
-
-Make it vivid, atmospheric, and suitable for D&D gameplay.`;
-    } else {
-      const poi = entityData as PointOfInterest;
-      prompt = `You are an expert dungeon master. Create a comprehensive guide for "${poi.name}".
-
-DUNGEON DATA:
-- Type: ${poi.type}
-- Difficulty: ${poi.exUmbraMetadata?.difficulty || 'Medium'}
-- Size: ${poi.exUmbraMetadata?.size || 'Unknown'}
-- Danger Level: ${poi.dangerLevel || 'Unknown'}
-- Aspects: ${poi.aspects?.map(a => a.name).join(', ') || 'Unknown'}
-- Threats: ${poi.exUmbraMetadata?.threatCount || 0}
-- Rewards: ${poi.exUmbraMetadata?.rewardCount || 0}
-- Inhabitants: ${poi.inhabitants?.map(i => i.name).join(', ') || 'Unknown'}
-
-WORLD CONTEXT:
-- World Age: ${world.age} years
-- Magic Level: ${world.magicLevel}/10
-- Civilization: ${world.civilizationAbundance}/10
-
-Write an 800-1200 word dungeon guide including:
-1. Overview - What is this dungeon? Why does it exist?
-2. Layout & Architecture - Describe the structure and atmosphere
-3. The Aspects - How does each aspect manifest?
-4. Major Encounters - Describe 3-4 significant encounters
-5. The Heart - The dungeon's most important location
-6. Secrets & Mysteries - What can be discovered?
-7. Environmental Hazards - Traps and natural dangers
-8. Treasure & Rewards - Valuable items and loot
-9. Inhabitants - Who/what lives here?
-10. Adventure Hooks - How to get parties to enter?
-
-Write in an engaging, atmospheric style suitable for actual gameplay.`;
-    }
-
-    const response = await fetch(process.env.REACT_APP_CLAUDE_ENDPOINT || 'https://api.anthropic.com/v1/messages', {
+    // Call backend API to generate lore
+    const response = await fetch('/api/world-builder', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey || '',
-        'anthropic-version': '2023-06-01'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-opus-4-7',
-        max_tokens: type === 'city' ? 2000 : 3000,
-        messages: [{ role: 'user', content: prompt }]
+        action: 'generateLoreForEntity',
+        params: {
+          entityType: type,
+          entityName: entityData.name,
+          entityData: entityData,
+          world: world
+        }
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Claude API error: ${response.statusText}`);
+      throw new Error(`Backend API error: ${response.statusText}`);
     }
 
     const responseData = await response.json();
-    const lore = responseData.content[0]?.text || '';
+    const lore = responseData.lore || '';
     return lore;
   };
 

@@ -74,6 +74,9 @@ module.exports = async (req, res) => {
       case 'queryWorldState':
         return await queryWorldState(req, res, params);
 
+      case 'generateLoreForEntity':
+        return await generateLoreForEntity(req, res, params);
+
       default:
         return res.status(400).json({ error: 'Unknown action' });
     }
@@ -614,6 +617,98 @@ async function queryWorldState(req, res, params) {
     });
   } catch (error) {
     console.error('World State Query Error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+// Generate lore for a single entity (city or dungeon)
+async function generateLoreForEntity(req, res, params) {
+  const { entityType, entityName, entityData, world } = params;
+
+  if (!entityType || !entityName || !entityData || !world) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    let prompt = '';
+
+    if (entityType === 'city') {
+      const city = entityData;
+      prompt = `You are a master storyteller for D&D worlds. Create a rich, detailed historical write-up of ${city.name}.
+
+CITY DATA:
+- Government: ${city.governmentType || 'Unknown'}
+- Population: ${city.exNovoMetadata?.totalPopulation || city.population || 'Unknown'}
+- Districts: ${city.exNovoMetadata?.districtCount || 0}
+- Factions: ${city.factions?.map(f => f.name).join(', ') || 'None'}
+- Landmarks: ${city.landmarks?.map(l => l.name).join(', ') || 'None'}
+
+WORLD CONTEXT:
+- World Age: ${world.age} years
+- Magic Level: ${world.magicLevel}/10
+- Civilization: ${world.civilizationAbundance}/10
+
+Write a 400-600 word historical narrative including:
+1. Foundation Story - How and why was this city founded?
+2. Early Development - How did the city grow?
+3. Major Events - What historical events shaped it?
+4. Current State - What is the city like now?
+5. The People - What are the citizens like?
+6. Secrets & Mysteries - What lurks in ${city.name}?
+7. Adventure Hooks - What would bring adventurers here?
+
+Make it vivid, atmospheric, and suitable for D&D gameplay.`;
+    } else if (entityType === 'dungeon') {
+      const poi = entityData;
+      prompt = `You are an expert dungeon master. Create a comprehensive guide for "${poi.name}".
+
+DUNGEON DATA:
+- Type: ${poi.type}
+- Difficulty: ${poi.exUmbraMetadata?.difficulty || 'Medium'}
+- Size: ${poi.exUmbraMetadata?.size || 'Unknown'}
+- Danger Level: ${poi.dangerLevel || 'Unknown'}
+- Aspects: ${poi.aspects?.map(a => a.name).join(', ') || 'Unknown'}
+- Threats: ${poi.exUmbraMetadata?.threatCount || 0}
+- Rewards: ${poi.exUmbraMetadata?.rewardCount || 0}
+
+WORLD CONTEXT:
+- World Age: ${world.age} years
+- Magic Level: ${world.magicLevel}/10
+- Civilization: ${world.civilizationAbundance}/10
+
+Write an 800-1200 word dungeon guide including:
+1. Overview - What is this dungeon? Why does it exist?
+2. Layout & Architecture - Describe the structure and atmosphere
+3. The Aspects - How does each aspect manifest?
+4. Major Encounters - Describe 3-4 significant encounters
+5. The Heart - The dungeon's most important location
+6. Secrets & Mysteries - What can be discovered?
+7. Environmental Hazards - Traps and natural dangers
+8. Treasure & Rewards - Valuable items and loot
+9. Inhabitants - Who/what lives here?
+10. Adventure Hooks - How to get parties to enter?
+
+Write in an engaging, atmospheric style suitable for actual gameplay.`;
+    } else {
+      return res.status(400).json({ error: 'Invalid entity type' });
+    }
+
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-7',
+      max_tokens: entityType === 'city' ? 2000 : 3000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const lore = message.content[0]?.type === 'text' ? message.content[0].text : '';
+
+    return res.status(200).json({
+      success: true,
+      lore,
+      entityName,
+      entityType
+    });
+  } catch (error) {
+    console.error('Lore Generation Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
