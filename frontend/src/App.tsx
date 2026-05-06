@@ -24,6 +24,10 @@ function App() {
   const [mythweaverUrl, setMythweaverUrl] = useState(
     import.meta.env.VITE_MYTHWEAVER_URL || 'http://localhost:5000'
   );
+  const [openAiKey, setOpenAiKey] = useState('');
+  const [mapImageUrl, setMapImageUrl] = useState<string | null>(null);
+  const [mapImageLoading, setMapImageLoading] = useState(false);
+  const [mapImageOpacity, setMapImageOpacity] = useState(0.35);
   const [showSettings, setShowSettings] = useState(false);
 
   const handleGenerateWorld = async (params: WorldParams) => {
@@ -106,6 +110,49 @@ function App() {
     a.click();
   };
 
+  const handleGenerateMapArt = async () => {
+    if (!world || !openAiKey) { setShowSettings(true); return; }
+    setMapImageLoading(true);
+    try {
+      const stats = world.terrainStats;
+      const waterPct = stats?.waterPercent ?? 40;
+      const forestPct = stats ? Math.round((stats.forest / stats.totalHexes) * 100) : 20;
+      const mtnPct = stats ? Math.round((stats.mountains / stats.totalHexes) * 100) : 10;
+      const magicDesc = world.magicLevel >= 8
+        ? 'highly magical with visible arcane phenomena, glowing ley lines, and floating islands'
+        : world.magicLevel >= 5
+        ? 'moderately magical with ancient ruins and arcane landmarks'
+        : 'low magic with a grounded, realistic feel';
+      const climateDesc = world.climate?.toLowerCase() ?? 'temperate';
+      const prompt = [
+        `Fantasy world map in the style of a master cartographer's illuminated atlas, circa 1400s.`,
+        `The world is called "${world.name}": ${waterPct}% ocean, ${forestPct}% forests, ${mtnPct}% mountains.`,
+        `Climate: ${climateDesc}. Magic level: ${magicDesc}.`,
+        `Style: aged parchment texture, hand-drawn coastlines, illustrated mountain ranges and forests,`,
+        `decorative compass rose, sea monsters in the oceans, ornate border.`,
+        `No text labels or annotations. Aerial top-down perspective. Rich warm tones.`,
+        `${world.cities.length} major settlements suggested by subtle illustrated icons.`,
+      ].join(' ');
+
+      const resp = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${openAiKey}` },
+        body: JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', quality: 'standard' }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error?.message || 'DALL-E request failed');
+      }
+      const data = await resp.json();
+      setMapImageUrl(data.data[0].url);
+    } catch (e: unknown) {
+      console.error('Map art generation failed:', e);
+      alert(`Map art failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setMapImageLoading(false);
+    }
+  };
+
   const isCity = (e: City | PointOfInterest): e is City => 'governmentType' in e;
 
   const getTabIcon = (tab: SidebarTab) => {
@@ -158,6 +205,29 @@ function App() {
           </button>
           {worldLore && (
             <button className="btn btn-ghost" onClick={() => setShowWorldLore(true)}>🌍 View Lore</button>
+          )}
+          <button
+            className="btn btn-ghost"
+            onClick={handleGenerateMapArt}
+            disabled={mapImageLoading}
+            title={openAiKey ? 'Generate AI map art (DALL-E 3)' : 'Set OpenAI API key in ⚙️ Settings first'}
+            style={mapImageUrl ? { borderColor: '#9b59b6', color: '#9b59b6' } : undefined}
+          >
+            {mapImageLoading ? '⏳' : '🎨'} {mapImageUrl ? 'Regen Art' : 'Map Art'}
+          </button>
+          {mapImageUrl && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 10, color: '#555566' }}>opacity</span>
+              <input
+                type="range" min={0.1} max={1} step={0.05}
+                value={mapImageOpacity}
+                onChange={e => setMapImageOpacity(Number(e.target.value))}
+                style={{ width: 70, cursor: 'pointer', accentColor: '#9b59b6' }}
+                title="Adjust map art overlay opacity"
+              />
+              <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }}
+                onClick={() => setMapImageUrl(null)} title="Remove map art overlay">✕</button>
+            </div>
           )}
           <AdventureForgeExport world={world} />
           <button className="btn btn-ghost" onClick={handleExportWorld}>📥 Export</button>
@@ -267,6 +337,34 @@ function App() {
             onHexHover={(x, y) => setHoveredHex({ x, y })}
             onHexClick={entity => setSelectedEntity(entity)}
           />
+          {/* DALL-E map art overlay */}
+          {mapImageUrl && (
+            <img
+              src={mapImageUrl}
+              alt="AI-generated map art"
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                objectFit: 'cover',
+                opacity: mapImageOpacity,
+                pointerEvents: 'none',
+                mixBlendMode: 'multiply',
+              }}
+            />
+          )}
+          {mapImageLoading && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(0,0,0,0.6)', zIndex: 5,
+              gap: 12,
+            }}>
+              <div style={{ fontSize: 32 }}>🎨</div>
+              <div style={{ fontSize: 14, color: '#d4af37' }}>Generating map art via DALL-E 3…</div>
+              <div style={{ fontSize: 11, color: '#555566' }}>This takes ~15 seconds</div>
+            </div>
+          )}
         </main>
       </div>
 
@@ -286,9 +384,31 @@ function App() {
           <div className="lore-modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowSettings(false)}>✕</button>
             <h2 className="lore-title">⚙️ Settings</h2>
+
             <div style={{ marginTop: 20 }}>
               <label style={{ display: 'block', fontSize: 12, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                Mythweaver / Game Master App URL
+                🎨 OpenAI API Key <span style={{ color: '#555566', textTransform: 'none', letterSpacing: 0 }}>(for DALL-E 3 map art)</span>
+              </label>
+              <input
+                type="password"
+                value={openAiKey}
+                onChange={e => setOpenAiKey(e.target.value)}
+                placeholder="sk-..."
+                style={{
+                  width: '100%', background: '#0f0f13', border: '1px solid #2e2e42',
+                  borderRadius: 4, color: '#e2e2e8', fontSize: 13, padding: '8px 12px',
+                  outline: 'none', fontFamily: 'Courier New, monospace',
+                }}
+              />
+              <p style={{ fontSize: 11, color: '#555566', marginTop: 6, lineHeight: 1.5 }}>
+                Used only in your browser. Never sent to any server other than OpenAI directly.
+                Click "🎨 Map Art" in the toolbar to generate an illuminated atlas image of your world.
+              </p>
+            </div>
+
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #2e2e42' }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                ⚔️ Mythweaver / Game Master App URL
               </label>
               <input
                 type="text"
@@ -301,8 +421,8 @@ function App() {
                   outline: 'none', fontFamily: 'Courier New, monospace',
                 }}
               />
-              <p style={{ fontSize: 11, color: '#555566', marginTop: 8, lineHeight: 1.5 }}>
-                Set this to the URL of your running Game Master app. When you click "Launch in Mythweaver" from a city or dungeon panel, the dungeon/city data will be sent to this URL.
+              <p style={{ fontSize: 11, color: '#555566', marginTop: 6, lineHeight: 1.5 }}>
+                When you click "Launch in Mythweaver" from a city or dungeon panel, data is sent to this URL.
               </p>
             </div>
             <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>

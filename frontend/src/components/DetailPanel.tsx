@@ -123,6 +123,25 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
 
   return (
     <>
+      {/* City at a glance */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+        {[
+          { label: 'Government', value: city.governmentType },
+          { label: 'Economy', value: city.economicFocus },
+          { label: 'Age', value: exNovo.age },
+          { label: 'Districts', value: String(exNovo.districts.length) },
+        ].map(stat => (
+          <div key={stat.label} style={{
+            flex: '1 1 auto', minWidth: 90,
+            background: '#1e1e28', border: '1px solid #2e2e42', borderRadius: 6,
+            padding: '8px 12px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 9, color: '#555566', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>{stat.label}</div>
+            <div style={{ fontSize: 12, color: '#d4af37', fontWeight: 'bold' }}>{stat.value}</div>
+          </div>
+        ))}
+      </div>
+
       <Section title="Founding">
         <p style={{ fontSize: 13, color: '#b8b8c8', lineHeight: 1.7, fontStyle: 'italic' }}>{exNovo.foundingStory}</p>
       </Section>
@@ -159,13 +178,50 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
       </Section>
 
       <Section title="Factions">
-        {exNovo.factions.map(f => (
-          <div key={f.id} style={{ marginBottom: 6 }}>
-            <Badge>{f.type}</Badge>
-            <span style={{ fontSize: 12, color: '#e2e2e8' }}>{f.name}</span>
-            <div style={{ fontSize: 11, color: '#666', marginTop: 2 }}>{f.description}</div>
-          </div>
-        ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {exNovo.factions.map(f => {
+            const factionColor = f.type === 'Political' ? '#2980b9'
+              : f.type === 'Criminal' ? '#c0392b'
+              : '#d4af37';
+            return (
+              <div key={f.id} style={{
+                background: '#1e1e28', border: `1px solid ${factionColor}33`,
+                borderLeft: `3px solid ${factionColor}`, borderRadius: 6, padding: '10px 14px',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 'bold', color: '#e2e2e8' }}>{f.name}</span>
+                  <span style={{
+                    fontSize: 9, background: `${factionColor}22`, border: `1px solid ${factionColor}66`,
+                    color: factionColor, borderRadius: 3, padding: '2px 7px',
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                  }}>{f.type}</span>
+                </div>
+                {f.leader && (
+                  <div style={{ fontSize: 11, color: factionColor, marginBottom: 4 }}>
+                    ⚑ Leader: <strong style={{ color: '#e2e2e8' }}>{f.leader}</strong>
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: '#888', lineHeight: 1.5, marginBottom: f.rivals.length > 0 || f.allies.length > 0 ? 6 : 0 }}>
+                  {f.description}
+                </div>
+                {(f.rivals.length > 0 || f.allies.length > 0) && (
+                  <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                    {f.rivals.length > 0 && (
+                      <span style={{ fontSize: 10, color: '#c0392b' }}>
+                        ⚔ Rivals with {exNovo.factions.filter(r => f.rivals.includes(r.id)).map(r => r.name).join(', ') || 'unknown'}
+                      </span>
+                    )}
+                    {f.allies.length > 0 && (
+                      <span style={{ fontSize: 10, color: '#27ae60' }}>
+                        🤝 Allied with {exNovo.factions.filter(a => f.allies.includes(a.id)).map(a => a.name).join(', ') || 'unknown'}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </Section>
 
       <Section title="Current Situation">
