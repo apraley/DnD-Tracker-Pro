@@ -13,6 +13,7 @@ import {
   fetchDonjonDungeonNames,
   convertDonjonToWorld
 } from '../utils/donjonIntegration';
+import { generateTerrain, getViableLocations, getLandLocations } from '../utils/terrainGenerator';
 
 export const useWorldBuilder = () => {
   const [loading, setLoading] = useState(false);
@@ -63,18 +64,32 @@ export const useWorldBuilder = () => {
   const generateLocalWorld = (params: WorldParams): World => {
     resetNameGenerator();
 
+    const seed = Math.floor(Math.random() * 1000000);
+    const worldSeed = seed.toString();
+
+    // Generate fractal terrain client-side
+    const { hexGrid, stats } = generateTerrain(seed, 40, 5);
+    const viableForCities = getViableLocations(hexGrid);
+    const viableForPOIs = getLandLocations(hexGrid);
+
+    // Shuffle locations
+    const shuffledCities = [...viableForCities].sort(() => Math.random() - 0.5);
+    const shuffledPOIs = [...viableForPOIs].sort(() => Math.random() - 0.5);
+
     const cities: City[] = [];
     const cityCount = Math.min(10 + ((params.civilizationAbundance || 5) * 2), 30);
     const govTypes = ['Monarchy', 'Democracy', 'Oligarchy', 'Theocracy', 'Merchant Republic'];
     const economicFocuses = ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'];
 
     for (let i = 0; i < cityCount; i++) {
+      const loc = shuffledCities[i] || { col: Math.floor(Math.random() * 50), row: Math.floor(Math.random() * 50) };
       cities.push({
         id: `city_${i}`,
         name: generateCityName(),
         population: Math.floor(Math.random() * 50000) + 5000,
-        hex_x: Math.floor(Math.random() * 50),
-        hex_y: Math.floor(Math.random() * 50),
+        hex_x: loc.col,
+        hex_y: loc.row,
+        terrainType: hexGrid[`${loc.col},${loc.row}`]?.terrainType ?? 4,
         governmentType: govTypes[Math.floor(Math.random() * govTypes.length)],
         history: 'A city with a rich and storied past.',
         rulingFactions: [],
@@ -86,27 +101,24 @@ export const useWorldBuilder = () => {
     }
 
     const pois: PointOfInterest[] = [];
-    const poiCount = 20;
-    const poiTypes = ['dungeon', 'ruins', 'natural_wonder', 'shrine', 'settlement'];
+    const poiCount = 25;
+    const poiTypes = ['dungeon', 'ruins', 'natural_wonder', 'shrine', 'settlement', 'geographical_landmark'];
 
     for (let i = 0; i < poiCount; i++) {
-      let poiName: string;
       const poiType = poiTypes[i % poiTypes.length];
-
-      if (poiType === 'dungeon') {
-        poiName = generateDungeonName();
-      } else if (poiType === 'natural_wonder') {
-        poiName = generateWonderName();
-      } else {
-        poiName = generatePOIName();
-      }
+      const loc = shuffledPOIs[cityCount + i] || { col: Math.floor(Math.random() * 50), row: Math.floor(Math.random() * 50) };
+      let poiName: string;
+      if (poiType === 'dungeon') poiName = generateDungeonName();
+      else if (poiType === 'natural_wonder' || poiType === 'geographical_landmark') poiName = generateWonderName();
+      else poiName = generatePOIName();
 
       pois.push({
         id: `poi_${i}`,
         name: poiName,
         type: poiType,
-        hex_x: Math.floor(Math.random() * 50),
-        hex_y: Math.floor(Math.random() * 50),
+        hex_x: loc.col,
+        hex_y: loc.row,
+        terrainType: hexGrid[`${loc.col},${loc.row}`]?.terrainType ?? 4,
         dangerLevel: Math.floor(Math.random() * 20) + 1,
         description: 'A mysterious location waiting to be explored.',
         adventureHooks: [],
@@ -120,14 +132,16 @@ export const useWorldBuilder = () => {
       magicLevel: params.magicLevel || 5,
       civilizationAbundance: params.civilizationAbundance || 5,
       climate: params.climate || 'Temperate',
-      terrain: params.terrain || 'Forest',
-      worldSeed: Math.random().toString(),
+      terrain: params.terrain || 'Mixed',
+      worldSeed,
       createdAt: new Date(),
       cities,
       pointsOfInterest: pois,
       npcs: [],
       factions: [],
-      weatherPatterns: []
+      weatherPatterns: [],
+      hexGrid,
+      terrainStats: stats,
     } as World;
   };
 

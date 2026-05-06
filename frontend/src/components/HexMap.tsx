@@ -1,7 +1,6 @@
 // Interactive Hex Map Component for D&D World Builder
 import React, { useState, useRef, useEffect } from 'react';
 import { World, City, PointOfInterest } from '../types/world';
-import styles from './HexMap.module.css';
 
 interface HexMapProps {
   world: World;
@@ -10,7 +9,7 @@ interface HexMapProps {
   mapVisualization?: string;
 }
 
-const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisualization }) => {
+const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredEntity, setHoveredEntity] = useState<City | PointOfInterest | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -18,7 +17,6 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [showVisualization, setShowVisualization] = useState(false);
 
   // Dynamically calculate hex size based on viewport
   const getHexSize = () => {
@@ -424,30 +422,37 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
     }
   };
 
+  const mapBtnStyle: React.CSSProperties = {
+    background: 'rgba(212,175,55,0.15)',
+    border: '1px solid #2e2e42',
+    color: '#d4af37',
+    borderRadius: 4,
+    width: 30,
+    height: 30,
+    cursor: 'pointer',
+    fontSize: 14,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
+
   return (
-    <div className={styles.container}>
-      <div className={styles.controls}>
-        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}>🏠 Reset</button>
-        <button onClick={() => setZoom(Math.min(zoom + 0.2, 3))}>🔍+ Zoom In</button>
-        <button onClick={() => setZoom(Math.max(zoom - 0.2, 0.15))}>🔍- Zoom Out</button>
-        <span className={styles.zoomLevel}>{Math.round(zoom * 100)}%</span>
-        <button
-          onClick={() => setShowVisualization(!showVisualization)}
-          title="Toggle detailed GPT-generated map visualization"
-          style={{
-            background: showVisualization ? 'rgba(212, 175, 55, 0.5)' : 'rgba(212, 175, 55, 0.2)',
-            borderColor: showVisualization ? '#FFD700' : '#FFD700'
-          }}
-        >
-          {showVisualization ? '🗺️ Hide Detail Map' : '🗺️ Show Detail Map'}
-        </button>
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0a0a0f', overflow: 'hidden' }}>
+      {/* Map controls */}
+      <div style={{
+        position: 'absolute', bottom: 16, right: 16, zIndex: 20,
+        display: 'flex', gap: 6, alignItems: 'center'
+      }}>
+        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} style={mapBtnStyle}>🏠</button>
+        <button onClick={() => setZoom(Math.min(zoom + 0.25, 4))} style={mapBtnStyle}>＋</button>
+        <button onClick={() => setZoom(Math.max(zoom - 0.25, 0.1))} style={mapBtnStyle}>－</button>
+        <span style={{ color: '#888', fontSize: 11, fontFamily: 'monospace' }}>{Math.round(zoom * 100)}%</span>
       </div>
 
       <canvas
         ref={canvasRef}
-        width={1000}
-        height={800}
-        className={styles.canvas}
+        width={1200}
+        height={900}
         onMouseMove={handleCanvasMouseMove}
         onClick={handleCanvasClick}
         onDoubleClick={handleDoubleClick}
@@ -455,93 +460,32 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab', display: 'block', width: '100%', height: '100%' }}
       />
 
       {hoveredEntity && (
-        <div
-          className={styles.tooltip}
-          style={{
-            left: `${tooltipPos.x + 10}px`,
-            top: `${tooltipPos.y + 10}px`
-          }}
-        >
-          <p className={styles.entityName}>
+        <div style={{
+          position: 'absolute',
+          left: `${tooltipPos.x + 12}px`,
+          top: `${tooltipPos.y + 12}px`,
+          background: 'rgba(15,15,20,0.95)',
+          border: '1px solid #d4af37',
+          borderRadius: 6,
+          padding: '8px 12px',
+          pointerEvents: 'none',
+          zIndex: 50,
+          minWidth: 140,
+        }}>
+          <div style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 13 }}>
             {('governmentType' in hoveredEntity) ? `🏰 ${hoveredEntity.name}` : `📍 ${hoveredEntity.name}`}
-          </p>
-          <p className={styles.entityType}>
-            {'governmentType' in hoveredEntity ? 'City' : hoveredEntity.type}
-          </p>
-          <p className={styles.hint}>Click for details</p>
+          </div>
+          <div style={{ color: '#888', fontSize: 11, marginTop: 2 }}>
+            {'governmentType' in hoveredEntity ? (hoveredEntity as City).governmentType : (hoveredEntity as PointOfInterest).type.replace('_',' ')}
+          </div>
+          <div style={{ color: '#555', fontSize: 10, marginTop: 4, fontStyle: 'italic' }}>Click for details</div>
         </div>
       )}
 
-      {showVisualization && (
-        <div className={styles.visualizationPanel}>
-          {mapVisualization ? (
-            <>
-              <h3>🗺️ GPT-Generated Map Visualization</h3>
-              <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                padding: '12px',
-                borderRadius: '4px',
-                marginBottom: '15px',
-                maxHeight: 'calc(80vh - 200px)',
-                overflowY: 'auto',
-                fontFamily: 'monospace',
-                fontSize: '12px',
-                lineHeight: '1.5',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word'
-              }}>
-                {mapVisualization}
-              </div>
-            </>
-          ) : (
-            <>
-              <h3>🗺️ World Map Details</h3>
-              <p><strong>World:</strong> {world.name}</p>
-              <p><strong>Age:</strong> {world.age} years</p>
-              <p><strong>Climate:</strong> {world.climate}</p>
-              <p><strong>Terrain:</strong> {world.terrain}</p>
-              <p><strong>Magic Level:</strong> {world.magicLevel}/10</p>
-              <p><strong>Civilization:</strong> {world.civilizationAbundance}/10</p>
-
-              {world.generationMetadata && (
-                <>
-                  <h3>📊 World Statistics</h3>
-                  <p>🏰 <strong>Cities:</strong> {world.generationMetadata.totalCities}</p>
-                  <p>📍 <strong>Points of Interest:</strong> {world.generationMetadata.totalPOIs}</p>
-                  <p>👥 <strong>NPCs:</strong> {world.generationMetadata.totalNPCs}</p>
-                  <p>🏛️ <strong>Factions:</strong> {world.generationMetadata.totalFactions}</p>
-                  <p>📜 <strong>Historical Events:</strong> {world.generationMetadata.totalHistoricalEvents || 0}</p>
-                  <p>📦 <strong>Commodities:</strong> {world.generationMetadata.totalCommodities}</p>
-                  <p>🛤️ <strong>Trade Routes:</strong> {world.generationMetadata.totalTradeRoutes}</p>
-                </>
-              )}
-
-              <h3>🎯 Top Cities</h3>
-              {world.cities.slice(0, 3).map((city) => (
-                <p key={city.id}>
-                  <strong>{city.name}</strong> - {city.governmentType}
-                  {city.prosperity_index && ` (Prosperity: ${city.prosperity_index}%)`}
-                </p>
-              ))}
-
-              <h3>⚔️ Dangers</h3>
-              {world.pointsOfInterest.filter(p => p.dangerLevel >= 15).slice(0, 3).map((poi) => (
-                <p key={poi.id}>
-                  <strong>{poi.name}</strong> - Danger: {poi.dangerLevel}/20
-                </p>
-              ))}
-
-              <p style={{ marginTop: '20px', fontSize: '11px', opacity: 0.7 }}>
-                Hover over hexes to see more details. Click entities for full information.
-              </p>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 };
