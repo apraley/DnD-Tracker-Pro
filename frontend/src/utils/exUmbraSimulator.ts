@@ -23,7 +23,7 @@ const CR_TIERS: CRTier[] = [
   { tier: 4, label: 'Mythic', levelRange: '17–20', crRange: 'CR 17+', description: 'Legend-level threats. Dragons, demon lords, world-ending magic, and divine corruption.' },
 ];
 
-// ─── Data Tables ─────────────────────────────────────────────────────────────
+// ─── Dungeon Data Tables ──────────────────────────────────────────────────────
 
 const DUNGEON_ORIGINS = [
   'a dwarven vault sealed after the last great plague',
@@ -38,6 +38,18 @@ const DUNGEON_ORIGINS = [
   'a mine that broke through into something it shouldn\'t have',
   'a noble family\'s manor that sank into the earth during an earthquake',
   'a ritual space where the barrier between worlds is dangerously thin',
+  'a wizard\'s tower that sank into the earth after a failed experiment',
+  'a dwarven aqueduct whose lower sections flooded and were abandoned',
+  'a thieves\' guild vault whose members were betrayed and slaughtered',
+  'the collapsed palace of a dynasty no one remembers',
+  'a fortification built against an enemy that never came — and then a different enemy did',
+  'a monastery whose monks took an oath of silence that eventually became an oath of death',
+  'a network of smuggling tunnels that outlasted the empire that built them',
+  'a place where a lich prepared its phylactery and then forgot where they put it',
+  'a gladiatorial pit whose crowds eventually became the entertainment',
+  'a natural formation that a cult chose as their home for reasons that made sense at the time',
+  'the underground half of a city that was built on the surface centuries later',
+  'a treasury built so securely that the builders were killed to keep its location secret',
 ];
 
 const DUNGEON_ASPECTS = [
@@ -55,6 +67,14 @@ const DUNGEON_ASPECTS = [
   { name: 'The Corruption', description: 'A dark influence seeps from the deepest room, slowly changing whatever stays too long.' },
   { name: 'The Memory', description: 'Psychic impressions of past events replay in certain rooms. Not ghosts — just recordings.' },
   { name: 'The Competition', description: 'Another group is already in the dungeon — with the same goal, or worse.' },
+  { name: 'The Silence', description: 'No ambient noise. The absence of sound is itself unnerving. Whispers carry further than they should.' },
+  { name: 'The Cold', description: 'Temperature drops below freezing in the deeper sections. Breath fogs. Metal sticks to bare skin.' },
+  { name: 'The Mold', description: 'Black mold covers the lower levels. It releases spores when disturbed. It has opinions.' },
+  { name: 'The Watcher', description: 'Something has been observing the dungeon for decades. It has noted everything. It is not impressed.' },
+  { name: 'The Door', description: 'One door that shouldn\'t be here leads somewhere that isn\'t on any map. It\'s been locked from the other side.' },
+  { name: 'The Ledger', description: 'Someone tracked every death in this dungeon. The entries go back centuries. The handwriting never changes.' },
+  { name: 'The Smoke', description: 'A low-lying haze that smells of something burned long ago. It doesn\'t come from anything visible.' },
+  { name: 'The Wrongness', description: 'Nothing is visibly unusual. But something fundamental is off. Animals refuse to enter. Spells behave unexpectedly.' },
 ];
 
 const ROOM_TYPES = [
@@ -73,6 +93,14 @@ const ROOM_TYPES = [
   { name: 'The Prison', role: 'encounter', description: 'Cells, chains, and something that may still be imprisoned.' },
   { name: 'The Sanctum', role: 'boss', description: 'The innermost room. The reason the dungeon exists.' },
   { name: 'The Collapse', role: 'hazard', description: 'Rubble and unstable passages. Traversable but dangerous.' },
+  { name: 'The Antechamber', role: 'transition', description: 'A waiting room that once held supplicants. The benches are still here.' },
+  { name: 'The Gallery', role: 'lore', description: 'Portraits or statues of those who once inhabited this place. Some have been defaced.' },
+  { name: 'The Reliquary', role: 'reward', description: 'A room built to house sacred objects. Most are gone. Not all.' },
+  { name: 'The Cistern', role: 'hazard', description: 'A water storage chamber. The water is old. Something lives in it.' },
+  { name: 'The Summoning Room', role: 'encounter', description: 'The circle is still intact. Whatever was summoned may still be bound.' },
+  { name: 'The Dining Hall', role: 'encounter', description: 'The long table is still set for a meal that was never eaten.' },
+  { name: 'The Machine Room', role: 'hazard', description: 'Ancient mechanisms, still moving. Their purpose is unclear. Their danger is not.' },
+  { name: 'The Escape Tunnel', role: 'transition', description: 'A hidden passage for emergency exit. Where it leads is the question.' },
 ];
 
 const BOSS_TYPES: Record<number, string[]> = {
@@ -109,6 +137,101 @@ const SECRETS: Record<number, string[]> = {
   3: ['The dungeon is a prison, not a lair — what\'s inside is meant to be contained.', 'Clearing the dungeon will trigger a larger threat the party didn\'t expect.', 'The boss was once a hero. Something here caused them to fall.', 'The treasure is a trap — taking it has consequences.'],
   4: ['The dungeon exists in two realities simultaneously. The real threat is in the other one.', 'The boss is not the final threat — defeating them unlocks something worse.', 'The dungeon is a god\'s dream. Killing the boss wakes the god.', 'Victory is impossible by force — the solution is something else entirely.'],
 };
+
+// ─── Natural Wonder Data ─────────────────────────────────────────────────────
+
+const WONDER_ORIGINS = [
+  'a convergence of ley lines so powerful the landscape itself was reshaped',
+  'the burial site of a primordial elemental whose body became the terrain',
+  'the impact crater of a shard of a fallen star',
+  'the remains of a divine battle that scarred the earth permanently',
+  'an ancient experiment by a god who has since abandoned this world',
+  'a place where the boundary between planes is permanently thin',
+  'the site where a world-tree once grew before it was destroyed',
+  'a natural phenomenon so old it predates the current age of the world',
+  'the crystallized remnants of a magical cataclysm from the first age',
+  'a location where the raw stuff of creation bubbles to the surface',
+];
+
+const WONDER_ASPECTS = [
+  { name: 'The Pulse', description: 'The ground here beats with a slow rhythm. Animals grow calm. Spellcasters feel their power sharpen.' },
+  { name: 'The Perpetual Storm', description: 'Lightning strikes in the same places every hour. The thunderclaps never echo.' },
+  { name: 'The Reversal', description: 'Water flows upward here. Flames burn cold. Compasses spin uselessly.' },
+  { name: 'The Song', description: 'A sound that isn\'t quite music emanates from somewhere below. It has words, if you listen long enough.' },
+  { name: 'The Bloom', description: 'Plants grow here in hours what takes years elsewhere. Some of them should not exist.' },
+  { name: 'The Stillness', description: 'Sound dies within fifty feet of the center. Not muffled — absent. Even heartbeats.' },
+  { name: 'The Shimmer', description: 'Light bends strangely. You can see things that aren\'t there yet, or aren\'t here at all.' },
+  { name: 'The Weight', description: 'Gravity is wrong here. Everything feels twice as heavy, or half as heavy, or both.' },
+  { name: 'The Memory', description: 'Visions of the past replay without prompting. Not ghosts — recordings burned into the air.' },
+  { name: 'The Hunger', description: 'Magic is consumed here. Spell slots drain. Enchanted items go quiet. The effect fades on departure.' },
+  { name: 'The Presence', description: 'Something enormous and ancient is aware of visitors. It has not yet decided what to do.' },
+  { name: 'The Veil', description: 'The boundary to the spirit world is thin here. The recently dead linger. The long dead walk.' },
+];
+
+const WONDER_AREAS = [
+  { name: 'The Approach', role: 'transition', description: 'The point where the wonder\'s influence first becomes palpable.' },
+  { name: 'The Outer Ring', role: 'hazard', description: 'Strange effects manifest at the periphery — a preview of what lies deeper.' },
+  { name: 'The Heart', role: 'boss', description: 'The source of the wonder\'s power. Overwhelming to stand near.' },
+  { name: 'The Reflection Pool', role: 'lore', description: 'Still water or crystal that shows things it shouldn\'t.' },
+  { name: 'The Rift', role: 'hazard', description: 'A crack in reality. Things come through. Some don\'t return.' },
+  { name: 'The Sanctuary', role: 'reward', description: 'A place of safety within the wonder, sheltered from its extremes.' },
+  { name: 'The Archive', role: 'lore', description: 'Natural formations that record history in ways scholars can barely read.' },
+  { name: 'The Convergence', role: 'encounter', description: 'Where multiple aspects of the wonder collide and intensify.' },
+  { name: 'The Threshold', role: 'transition', description: 'The point of no return, visible to those who know what to look for.' },
+  { name: 'The Resonance Chamber', role: 'lore', description: 'A natural hollow where the wonder\'s true nature can be studied.' },
+];
+
+const WONDER_GUARDIANS: Record<number, string[]> = {
+  1: ['Awakened Animal Guardian', 'Minor Nature Spirit', 'Treant Sapling', 'Animated Terrain Feature'],
+  2: ['Ancient Treant', 'Storm Giant', 'Elemental Prince', 'Fey Court Champion'],
+  3: ['Primordial Elemental', 'Ancient Dragon (nature-bound)', 'Archdruid Ascendant', 'Spirit of the Location'],
+  4: ['Aspect of a Nature Deity', 'Elder Primordial', 'World-Serpent Fragment', 'The Wonder Itself'],
+};
+
+const WONDER_HAZARDS: Record<number, string[]> = {
+  1: ['Wild magic surge zone (DC 12 Arcana to navigate)', 'Enchanted sleep (DC 13 Wis or fall asleep for 1 hour)', 'Gravity reversal (DC 12 Acrobatics or fall "up")'],
+  2: ['Temporal distortion (age 1d6 years on failed DC 14 Con)', 'Memory wipe (DC 14 Int or forget the last hour)', 'Elemental surge (4d8 damage of random type, DC 14 Dex)'],
+  3: ['Planar bleed (DC 16: pulled partially into adjacent plane)', 'Reality fracture (spells randomly redirect, DC 16 Arcana)', 'Essence drain (lose a level until long rest, DC 17 Con)'],
+  4: ['Divine attention (deity notices the party)', 'Identity dissolution (DC 20 Wis or forget who you are)', 'Permanent wild magic taint (DC 20 Con)'],
+};
+
+const WONDER_DISCOVERIES: Record<number, string[]> = {
+  1: ['A minor magical spring with healing properties', 'Rare herbs worth 200 gp to the right alchemist', 'A map showing the wonder\'s hidden inner sanctum', 'Crystals that act as spell components'],
+  2: ['A ritual site that allows the casting of a 4th-level spell for free', 'Access to a planar pocket with unclaimed resources', 'The blessing of whatever power inhabits this place', 'Ancient lore lost to the outside world'],
+  3: ['A permanent magical boon from the wonder\'s spirit', 'A legendary component needed for a world-affecting ritual', 'The true name of a powerful being', 'A glimpse of the future (and the choice to act on it)'],
+  4: ['The power to reshape a small part of reality', 'A direct audience with a deity or primordial', 'The ability to seal or unseal the wonder itself', 'Knowledge that changes the nature of the quest'],
+};
+
+const WONDER_SECRETS: Record<number, string[]> = {
+  1: ['The wonder is dying. Without intervention, it will be gone in a generation.', 'Something is using the wonder as a larder, draining it slowly.', 'The wonder is a lid. What\'s beneath it does not want to stay beneath.'],
+  2: ['The wonder was created deliberately — and the creator is still alive.', 'A faction already knows the wonder\'s true nature and is exploiting it.', 'The wonder is connected to other wonders across the world by ley lines.'],
+  3: ['The wonder is a prison. The prisoner is almost free.', 'The wonder is a god\'s body. It is not entirely dead.', 'Visiting the wonder changes you permanently — most visitors don\'t notice.'],
+  4: ['The wonder is a key. The question is what it unlocks.', 'The wonder has been here longer than the world. It came first.', 'The wonder is aware of every person who has ever visited it. It remembers them all.'],
+};
+
+// ─── Geographical Landmark Data ──────────────────────────────────────────────
+
+const LANDMARK_ORIGINS = [
+  'a geographic feature so extreme it forced civilisation to route around it',
+  'the remnant of a geological cataclysm from the world\'s early age',
+  'a formation that has served as a waypoint for travelers since the first roads',
+  'a natural border that no army has successfully crossed without permission',
+  'a feature so distinctive that it appears on every map ever drawn of this region',
+  'the highest or lowest or widest or deepest point in the known world',
+  'a natural formation that resonates with the world\'s own magical frequency',
+  'a place where two ecosystems collide, creating something found nowhere else',
+];
+
+const LANDMARK_AREAS = [
+  { name: 'The Approach Road', role: 'transition', description: 'The well-worn path that all travelers use.' },
+  { name: 'The Overlook', role: 'lore', description: 'The best vantage point for understanding the landmark\'s scale.' },
+  { name: 'The Interior', role: 'encounter', description: 'The heart of the feature — caves, canyons, passes, or peaks.' },
+  { name: 'The Hidden Path', role: 'reward', description: 'A route through the landmark that only locals know.' },
+  { name: 'The Dangerous Crossing', role: 'hazard', description: 'The point where the landmark must be traversed, not avoided.' },
+  { name: 'The Shrine', role: 'lore', description: 'Travelers have been leaving offerings here for centuries.' },
+  { name: 'The Camp', role: 'transition', description: 'The traditional stopping point before the difficult section.' },
+  { name: 'The Summit or Depth', role: 'boss', description: 'The extreme point — highest, deepest, most remote.' },
+];
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
 
@@ -159,14 +282,40 @@ export function simulateExUmbra(poi: PointOfInterest, worldSeed: string): ExUmbr
   const crTier = CR_TIERS[tierIndex];
   const dungeonLevel = Math.floor(rng() * (parseInt(crTier.levelRange.split('–')[1]) - parseInt(crTier.levelRange.split('–')[0]) + 1)) + parseInt(crTier.levelRange.split('–')[0]);
 
-  const origin = pick(DUNGEON_ORIGINS, rng);
-  const aspects = pickN(DUNGEON_ASPECTS, 3, rng);
-  const rooms = pickN(ROOM_TYPES, Math.floor(rng() * 3) + 5, rng);
-  const boss = pick(BOSS_TYPES[crTier.tier], rng);
-  const minions = pick(MINION_TYPES[crTier.tier], rng);
-  const traps = pickN(TRAPS[crTier.tier], 2, rng);
-  const reward = pick(REWARDS[crTier.tier], rng);
-  const secret = pick(SECRETS[crTier.tier], rng);
+  const isWonder = poi.type === 'natural_wonder';
+  const isLandmark = poi.type === 'geographical_landmark';
+
+  let origin: string, aspects: Array<{name: string; description: string}>, rooms: Array<{name: string; role: string; description: string}>, boss: string, minions: string, traps: string[], reward: string, secret: string;
+
+  if (isWonder) {
+    origin = pick(WONDER_ORIGINS, rng);
+    aspects = pickN(WONDER_ASPECTS, 3, rng);
+    rooms = pickN(WONDER_AREAS, Math.floor(rng() * 3) + 4, rng);
+    boss = pick(WONDER_GUARDIANS[crTier.tier], rng);
+    minions = pick(MINION_TYPES[crTier.tier], rng);
+    traps = pickN(WONDER_HAZARDS[crTier.tier], 2, rng);
+    reward = pick(WONDER_DISCOVERIES[crTier.tier], rng);
+    secret = pick(WONDER_SECRETS[crTier.tier], rng);
+  } else if (isLandmark) {
+    origin = pick(LANDMARK_ORIGINS, rng);
+    aspects = pickN(WONDER_ASPECTS, 2, rng);
+    rooms = pickN(LANDMARK_AREAS, Math.floor(rng() * 2) + 4, rng);
+    boss = pick(WONDER_GUARDIANS[crTier.tier], rng);
+    minions = pick(MINION_TYPES[crTier.tier], rng);
+    traps = pickN(WONDER_HAZARDS[crTier.tier], 1, rng);
+    reward = pick(WONDER_DISCOVERIES[crTier.tier], rng);
+    secret = pick(WONDER_SECRETS[crTier.tier], rng);
+  } else {
+    // Dungeon, ruins, cave, tomb, crypt, lair, etc.
+    origin = pick(DUNGEON_ORIGINS, rng);
+    aspects = pickN(DUNGEON_ASPECTS, 3, rng);
+    rooms = pickN(ROOM_TYPES, Math.floor(rng() * 3) + 5, rng);
+    boss = pick(BOSS_TYPES[crTier.tier], rng);
+    minions = pick(MINION_TYPES[crTier.tier], rng);
+    traps = pickN(TRAPS[crTier.tier], 2, rng);
+    reward = pick(REWARDS[crTier.tier], rng);
+    secret = pick(SECRETS[crTier.tier], rng);
+  }
 
   // Build Mythweaver-ready encounter text
   const mythweaverEncounters = `DUNGEON: ${poi.name}

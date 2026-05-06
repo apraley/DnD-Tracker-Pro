@@ -7,9 +7,10 @@ interface HexMapProps {
   onHexHover: (hexX: number, hexY: number) => void;
   onHexClick: (entity: City | PointOfInterest) => void;
   mapVisualization?: string;
+  highlightedId?: string | null;
 }
 
-const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
+const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highlightedId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hoveredEntity, setHoveredEntity] = useState<City | PointOfInterest | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -292,12 +293,36 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
     world.cities.forEach((city) => {
       const { pixelX, pixelY } = hexToPixel(city.hex_x, city.hex_y);
       drawCityIcon(ctx, pixelX, pixelY);
+      if (city.id === highlightedId) {
+        ctx.beginPath();
+        ctx.arc(pixelX, pixelY, 12, 0, Math.PI * 2);
+        ctx.strokeStyle = '#d4af37';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(pixelX, pixelY, 16, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(212,175,55,0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     });
 
     // Draw POIs
     world.pointsOfInterest.forEach((poi) => {
       const { pixelX, pixelY } = hexToPixel(poi.hex_x, poi.hex_y);
       drawPOIIcon(ctx, pixelX, pixelY, poi.type);
+      if (poi.id === highlightedId) {
+        ctx.beginPath();
+        ctx.arc(pixelX, pixelY, 12, 0, Math.PI * 2);
+        ctx.strokeStyle = '#d4af37';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(pixelX, pixelY, 16, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(212,175,55,0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     });
 
     ctx.restore();
@@ -370,8 +395,13 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const screenX = e.clientX - rect.left;
-    const screenY = e.clientY - rect.top;
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const screenX = (e.clientX - rect.left) * scaleX;
+    const screenY = (e.clientY - rect.top) * scaleY;
+
+    // Always update tooltip to CSS pixel position (not scaled)
+    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
 
     // Handle dragging
     if (isDragging) {
@@ -381,8 +411,6 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick }) => {
       setDragStart({ x: e.clientX, y: e.clientY });
       return;
     }
-
-    setTooltipPos({ x: screenX, y: screenY });
 
     // Convert screen coordinates to world coordinates
     // Reverse the transformations: screen → canvas center → remove pan → unscale

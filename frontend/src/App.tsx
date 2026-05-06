@@ -336,6 +336,7 @@ function App() {
             world={world}
             onHexHover={(x, y) => setHoveredHex({ x, y })}
             onHexClick={entity => setSelectedEntity(entity)}
+            highlightedId={selectedEntity?.id ?? null}
           />
           {/* DALL-E map art overlay */}
           {mapImageUrl && (

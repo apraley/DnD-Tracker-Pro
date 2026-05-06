@@ -8,11 +8,6 @@ import {
   generateWonderName,
   resetNameGenerator
 } from '../utils/nameGenerator';
-import {
-  fetchDonjonTowns,
-  fetchDonjonDungeonNames,
-  convertDonjonToWorld
-} from '../utils/donjonIntegration';
 import { generateTerrain, getViableLocations, getLandLocations } from '../utils/terrainGenerator';
 
 export const useWorldBuilder = () => {
@@ -24,38 +19,13 @@ export const useWorldBuilder = () => {
     setLoading(true);
     setError(null);
     try {
-      // Try to fetch Donjon data first
-      console.log('Fetching Donjon world data...');
-      const donjonTowns = await fetchDonjonTowns(20);
-      const donjonDungeons = await fetchDonjonDungeonNames(20);
-
-      if (donjonTowns.length > 0 || donjonDungeons.length > 0) {
-        console.log('Using Donjon data:', { towns: donjonTowns.length, dungeons: donjonDungeons.length });
-        const world = convertDonjonToWorld({}, params, donjonTowns, donjonDungeons);
-        setWorld(world);
-        return world;
-      }
-
-      // Fallback to API if Donjon fails
-      const response = await fetch('/api/world-builder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'generate',
-          params
-        })
-      });
-
-      if (!response.ok) throw new Error('API not available, generating locally...');
-      const data = await response.json();
-      setWorld(data.world);
-      return data.world;
-    } catch (err) {
-      // Fallback: Generate world locally
-      console.log('Generating local world...');
       const world = generateLocalWorld(params);
       setWorld(world);
       return world;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      setError(message);
+      throw err;
     } finally {
       setLoading(false);
     }
