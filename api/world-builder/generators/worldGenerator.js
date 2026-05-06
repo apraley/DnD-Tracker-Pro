@@ -78,13 +78,34 @@ class WorldGenerator {
     const cities = [];
     const usedCoords = new Set();
 
+    // Shuffle viable terrain locations so cities spread across the world
+    const viable = this.viableLocations ? [...this.viableLocations].sort(() => this.rng() - 0.5) : null;
+    let viableIdx = 0;
+
     for (let i = 0; i < count; i++) {
       let hex_x, hex_y;
-      // Ensure no duplicate coordinates
-      do {
-        hex_x = this.random(0, 50);
-        hex_y = this.random(0, 50);
-      } while (usedCoords.has(`${hex_x},${hex_y}`));
+      if (viable && viable.length > 0) {
+        // Pick from terrain-viable hexes (grassland, forest, hills only)
+        while (viableIdx < viable.length && usedCoords.has(`${viable[viableIdx].col},${viable[viableIdx].row}`)) {
+          viableIdx++;
+        }
+        if (viableIdx < viable.length) {
+          hex_x = viable[viableIdx].col;
+          hex_y = viable[viableIdx].row;
+          viableIdx++;
+        } else {
+          // Fallback if we run out of viable locations
+          do {
+            hex_x = this.random(0, 50);
+            hex_y = this.random(0, 50);
+          } while (usedCoords.has(`${hex_x},${hex_y}`));
+        }
+      } else {
+        do {
+          hex_x = this.random(0, 50);
+          hex_y = this.random(0, 50);
+        } while (usedCoords.has(`${hex_x},${hex_y}`));
+      }
       usedCoords.add(`${hex_x},${hex_y}`);
 
       const city = {
@@ -93,6 +114,7 @@ class WorldGenerator {
         population: Math.floor(this.random(1000, 50000) * (world.civilizationAbundance / 5)),
         hex_x,
         hex_y,
+        terrainType: this.hexGrid ? (this.hexGrid[`${hex_x},${hex_y}`]?.terrainType ?? 4) : 4,
         governmentType: this.pickRandom(GOVERNMENT_TYPES),
         historyId: this.pickRandom(HISTORIES).id,
         history: this.pickRandom(HISTORIES).description,
@@ -113,14 +135,36 @@ class WorldGenerator {
     const pois = [];
     const usedCoords = new Set();
 
+    // POIs can go on any land hex (terrain types 3-9, i.e. beach through ice)
+    const landHexes = this.hexGrid
+      ? Object.values(this.hexGrid).filter(h => h.terrainType >= 3).sort(() => this.rng() - 0.5)
+      : null;
+    let landIdx = 0;
+
     const poiTypes = Object.keys(POI_NAMES);
 
     for (let i = 0; i < count; i++) {
       let hex_x, hex_y;
-      do {
-        hex_x = this.random(0, 50);
-        hex_y = this.random(0, 50);
-      } while (usedCoords.has(`${hex_x},${hex_y}`));
+      if (landHexes && landHexes.length > 0) {
+        while (landIdx < landHexes.length && usedCoords.has(`${landHexes[landIdx].col},${landHexes[landIdx].row}`)) {
+          landIdx++;
+        }
+        if (landIdx < landHexes.length) {
+          hex_x = landHexes[landIdx].col;
+          hex_y = landHexes[landIdx].row;
+          landIdx++;
+        } else {
+          do {
+            hex_x = this.random(0, 50);
+            hex_y = this.random(0, 50);
+          } while (usedCoords.has(`${hex_x},${hex_y}`));
+        }
+      } else {
+        do {
+          hex_x = this.random(0, 50);
+          hex_y = this.random(0, 50);
+        } while (usedCoords.has(`${hex_x},${hex_y}`));
+      }
       usedCoords.add(`${hex_x},${hex_y}`);
 
       const poiType = this.pickRandom(poiTypes);
@@ -130,6 +174,7 @@ class WorldGenerator {
         type: poiType,
         hex_x,
         hex_y,
+        terrainType: this.hexGrid ? (this.hexGrid[`${hex_x},${hex_y}`]?.terrainType ?? 4) : 4,
         dangerLevel: this.random(1, 20),
         description: this.generatePOIDescription(poiType, world),
         adventureHooks: this.generateAdventureHooks(4),

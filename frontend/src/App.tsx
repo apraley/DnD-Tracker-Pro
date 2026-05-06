@@ -18,6 +18,9 @@ function App() {
   const [apiKeys, setApiKeys] = useState<{ claude?: string; chatgpt?: string }>({});
   const [mapVisualization, setMapVisualization] = useState<string | null>(null);
   const [showMapViz, setShowMapViz] = useState(false);
+  const [worldLore, setWorldLore] = useState<string | null>(null);
+  const [showWorldLore, setShowWorldLore] = useState(false);
+  const [worldLoreLoading, setWorldLoreLoading] = useState(false);
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
@@ -81,6 +84,28 @@ Make it creative, atmospheric, and helpful for a D&D campaign.`;
       setShowMapViz(true);
     } catch (err) {
       console.error('Map visualization failed:', err);
+    }
+  };
+
+  const handleGenerateWorldLore = async () => {
+    if (!world) return;
+    setWorldLoreLoading(true);
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_URL}/api/world-builder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generateWorldLore', params: { world } })
+      });
+      if (!response.ok) throw new Error('Failed to generate world lore');
+      const data = await response.json();
+      setWorldLore(data.lore);
+      setShowWorldLore(true);
+    } catch (err) {
+      console.error('World lore failed:', err);
+      alert('World lore generation failed. Check that your API server is running and ANTHROPIC_API_KEY is set.');
+    } finally {
+      setWorldLoreLoading(false);
     }
   };
 
@@ -151,6 +176,15 @@ Make it creative, atmospheric, and helpful for a D&D campaign.`;
                     <span>🛤️ {world.generationMetadata.totalTradeRoutes} Trade Routes</span>
                   </div>
                 )}
+                {world.terrainStats && (
+                  <div className="world-stats">
+                    <span>🌊 {world.terrainStats.waterPercent}% Ocean</span>
+                    <span>🌿 {Math.round((world.terrainStats.grassland / world.terrainStats.totalHexes) * 100)}% Grassland</span>
+                    <span>🌲 {Math.round((world.terrainStats.forest / world.terrainStats.totalHexes) * 100)}% Forest</span>
+                    <span>⛰️ {Math.round((world.terrainStats.mountains / world.terrainStats.totalHexes) * 100)}% Mountains</span>
+                    {world.terrainStats.ice > 0 && <span>🧊 {Math.round((world.terrainStats.ice / world.terrainStats.totalHexes) * 100)}% Ice</span>}
+                  </div>
+                )}
                 <div className="location-info">
                   {hoveredHex && (
                     <p>Hex ({hoveredHex.x}, {hoveredHex.y})</p>
@@ -158,6 +192,19 @@ Make it creative, atmospheric, and helpful for a D&D campaign.`;
                 </div>
               </div>
               <div className="header-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={handleGenerateWorldLore}
+                  disabled={worldLoreLoading}
+                  title="Generate geographic lore describing this world's continents, oceans, and natural wonders"
+                >
+                  {worldLoreLoading ? '⏳ Writing...' : '📜 LORE'}
+                </button>
+                {worldLore && (
+                  <button className="btn btn-secondary" onClick={() => setShowWorldLore(true)}>
+                    🌍 View World Lore
+                  </button>
+                )}
                 <AsyncLoreGeneratorUI
                   world={world}
                   onLoreGenerated={setWorld}
@@ -196,6 +243,28 @@ Make it creative, atmospheric, and helpful for a D&D campaign.`;
 
           {/* Entity Details Modal */}
           <EntityDetailsModal entity={selectedEntity} onClose={() => setSelectedEntity(null)} />
+
+          {/* World Lore Modal */}
+          {showWorldLore && worldLore && (
+            <div className="modal-overlay" onClick={() => setShowWorldLore(false)}>
+              <div className="map-viz-modal" onClick={(e) => e.stopPropagation()}>
+                <button className="close-btn" onClick={() => setShowWorldLore(false)}>✕</button>
+                <h2>📜 The Lore of {world.name}</h2>
+                {world.terrainStats && (
+                  <div className="world-stats" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span>🌊 {world.terrainStats.waterPercent}% Ocean</span>
+                    <span>🌿 Grassland</span>
+                    <span>🌲 Forest</span>
+                    <span>⛰️ Mountains</span>
+                    {world.terrainStats.ice > 0 && <span>🧊 Polar Ice</span>}
+                  </div>
+                )}
+                <div className="map-viz-content" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.7' }}>
+                  {worldLore}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Map Visualization Modal */}
           {showMapViz && mapVisualization && (

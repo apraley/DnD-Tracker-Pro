@@ -81,6 +81,9 @@ module.exports = async (req, res) => {
       case 'generateLoreForEntity':
         return await generateLoreForEntity(req, res, params);
 
+      case 'generateWorldLore':
+        return await generateWorldLore(req, res, params);
+
       default:
         return res.status(400).json({ error: 'Unknown action' });
     }
@@ -749,6 +752,88 @@ Write in an engaging, atmospheric style suitable for actual gameplay.`;
     });
   } catch (error) {
     console.error('Lore Generation Error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+}
+
+// Generate world-level geographic lore using terrain stats and Ex Novo/Ex Umbra frameworks
+async function generateWorldLore(req, res, params) {
+  const { world } = params;
+
+  if (!world) {
+    return res.status(400).json({ error: 'Missing world data' });
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({
+      error: 'API key not configured',
+      message: 'Set ANTHROPIC_API_KEY to enable world lore generation'
+    });
+  }
+
+  try {
+    const stats = world.terrainStats || {};
+    const totalHexes = stats.totalHexes || 2601;
+    const waterPct = stats.waterPercent || 40;
+    const landPct = 100 - waterPct;
+    const mountainPct = Math.round(((stats.mountains || 0) / totalHexes) * 100);
+    const forestPct = Math.round(((stats.forest || 0) / totalHexes) * 100);
+    const grasslandPct = Math.round(((stats.grassland || 0) / totalHexes) * 100);
+    const icePct = Math.round(((stats.ice || 0) / totalHexes) * 100);
+
+    const cityNames = (world.cities || []).slice(0, 8).map(c => c.name).join(', ');
+    const poiNames = (world.pointsOfInterest || []).slice(0, 6).map(p => `${p.name} (${p.type})`).join(', ');
+
+    const prompt = `You are a master cartographer and lore-keeper writing in the style of Ex Novo (a collaborative city-building framework) and Ex Umbra (a dungeon-generation framework that emphasizes dark, interconnected storytelling).
+
+WORLD DATA:
+- Name: ${world.name}
+- Age: ${world.age} years old
+- Magic Level: ${world.magicLevel}/10
+- Civilization: ${world.civilizationAbundance}/10
+- Climate: ${world.climate}
+
+GEOGRAPHY (from fractal terrain generation):
+- ${waterPct}% water coverage (oceans, seas, rivers)
+- ${landPct}% land mass
+- ${grasslandPct}% grasslands and coastal plains (where ${world.cities?.length || 0} cities are established)
+- ${forestPct}% deep forests and wooded hills
+- ${mountainPct}% mountain ranges
+- ${icePct}% polar ice and glaciers
+
+SETTLEMENTS: ${cityNames || 'Unknown'}
+NOTABLE LOCATIONS: ${poiNames || 'Unknown'}
+
+Write a 600-900 word geographic description of this world that includes:
+
+1. **THE SHAPE OF THE WORLD** — Describe the continents, oceans, island chains, and overall geography. How are the landmasses arranged? Where are the great oceans? Are there narrow straits, sprawling archipelagos, or vast inland seas?
+
+2. **THE GREAT GEOGRAPHIC REGIONS** — Name and describe 3-4 distinct geographic regions (e.g., "The Sunken Reach", "The Thornwall Highlands"). Use the terrain data to ground these.
+
+3. **NATURAL WONDERS** — Describe 2-3 breathtaking natural features (a vast glacial range, a bottomless inland sea, a forest that covers an entire sub-continent). These should feel discovered, not invented.
+
+4. **THE EDGES OF THE MAP** — What lies at the polar ice caps? What is beyond the deep ocean? Use the ${icePct}% ice coverage to describe the frozen wastes.
+
+5. **HOW THE WORLD FEELS** — Atmospheric closing paragraph about what it's like to stand on this world, see its skies, breathe its air.
+
+Write in vivid, evocative prose. This is lore that a DM would read aloud at the start of a campaign. No bullet points — pure narrative.`;
+
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    const lore = message.content[0]?.type === 'text' ? message.content[0].text : '';
+
+    return res.status(200).json({
+      success: true,
+      lore,
+      worldName: world.name,
+      terrainStats: stats
+    });
+  } catch (error) {
+    console.error('World Lore Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }

@@ -35,7 +35,34 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
   const MAP_WIDTH = 52; // Matches backend 51x51 grid (0-50)
   const MAP_HEIGHT = 52;
 
-  // Terrain color map
+  // Terrain color map for numeric terrain types (from worldGenIntegration)
+  const getTerrainTypeColor = (terrainType: number): string => {
+    const colors: { [key: number]: string } = {
+      0: '#0033CC', // deep ocean
+      1: '#0066FF', // shallow water
+      2: '#00CCFF', // coast
+      3: '#FFCC99', // beach
+      4: '#99DD44', // grassland
+      5: '#228B22', // forest
+      6: '#8B6914', // hills
+      7: '#999999', // mountains
+      8: '#555555', // high mountains
+      9: '#E8F4F8', // ice/snow
+    };
+    return colors[terrainType] ?? '#90EE90';
+  };
+
+  // Terrain name for numeric types
+  const getTerrainTypeName = (terrainType: number): string => {
+    const names: { [key: number]: string } = {
+      0: 'Deep Ocean', 1: 'Shallow Water', 2: 'Coast', 3: 'Beach',
+      4: 'Grassland', 5: 'Forest', 6: 'Hills', 7: 'Mountains',
+      8: 'High Mountains', 9: 'Ice/Snow',
+    };
+    return names[terrainType] ?? 'Unknown';
+  };
+
+  // Legacy string-based color map (fallback when no hexGrid)
   const getTerrainColor = (terrain: string, climate: string): string => {
     const terrainColors: { [key: string]: string } = {
       'Mountain': '#8B7355',
@@ -47,20 +74,13 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
       'Valley': '#98FB98',
       'River': '#4682B4'
     };
-
-    const climateWaterColors: { [key: string]: string } = {
-      'Tropical': '#1E90FF',
-      'Temperate': '#87CEEB',
-      'Arid': '#FFE4B5',
-      'Arctic': '#E0FFFF',
-      'Volcanic': '#A9A9A9'
-    };
-
-    // For water/coast areas in any climate
     if (terrain === 'Coast' || terrain === 'River') {
+      const climateWaterColors: { [key: string]: string } = {
+        'Tropical': '#1E90FF', 'Temperate': '#87CEEB',
+        'Arid': '#FFE4B5', 'Arctic': '#E0FFFF', 'Volcanic': '#A9A9A9'
+      };
       return climateWaterColors[climate] || '#4682B4';
     }
-
     return terrainColors[terrain] || '#90EE90';
   };
 
@@ -205,23 +225,29 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
     }
   };
 
-  // Determine hex terrain based on world characteristics (simple seeded approach)
-  const getHexTerrain = (col: number, row: number): string => {
+  // Get hex color — uses real terrain data from backend if available
+  const getHexColor = (col: number, row: number): string => {
+    if (world.hexGrid) {
+      const hex = (world.hexGrid as Record<string, { terrainType: number }>)[`${col},${row}`];
+      if (hex !== undefined) return getTerrainTypeColor(hex.terrainType);
+    }
+    // Fallback: legacy string-based terrain
     const seed = parseInt(world.worldSeed || '0', 10);
-    const hash = (seed + col * 73856093 ^ row * 19349663) % 100;
+    const hash = Math.abs(seed + col * 73856093 ^ row * 19349663) % 100;
+    if (hash < 20) return getTerrainColor('Mountain', world.climate);
+    if (hash < 35) return getTerrainColor('Forest', world.climate);
+    if (hash < 55) return getTerrainColor('Plains', world.climate);
+    if (hash < 70) return getTerrainColor('Coast', world.climate);
+    if (hash < 85) return getTerrainColor('River', world.climate);
+    return getTerrainColor('Plains', world.climate);
+  };
 
-    // Distribute terrain based on world characteristics
-    if (world.terrain === 'Mountain') return 'Mountain';
-    if (world.terrain === 'Forest') return 'Forest';
-    if (world.terrain === 'Desert') return 'Desert';
-
-    // For mixed terrains, create varied landscape
-    if (hash < 20) return 'Mountain';
-    if (hash < 35) return 'Forest';
-    if (hash < 45) return 'Plains';
-    if (hash < 55) world.climate === 'Tropical' ? 'Swamp' : 'Plains';
-    if (hash < 70) return 'Coast';
-    if (hash < 85) return 'River';
+  // Get terrain name for a hex (for tooltips/icons)
+  const getHexTerrainName = (col: number, row: number): string => {
+    if (world.hexGrid) {
+      const hex = (world.hexGrid as Record<string, { terrainType: number }>)[`${col},${row}`];
+      if (hex !== undefined) return getTerrainTypeName(hex.terrainType);
+    }
     return 'Plains';
   };
 
@@ -254,13 +280,12 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, mapVisua
     for (let col = Math.max(0, centerCol - visibleRange); col < Math.min(MAP_WIDTH, centerCol + visibleRange); col++) {
       for (let row = Math.max(0, centerRow - visibleRange); row < Math.min(MAP_HEIGHT, centerRow + visibleRange); row++) {
         const { pixelX, pixelY } = hexToPixel(col, row);
-        const terrain = getHexTerrain(col, row);
-        const color = getTerrainColor(terrain, world.climate);
+        const color = getHexColor(col, row);
         drawHex(ctx, pixelX, pixelY, HEX_SIZE - HEX_PADDING, color);
 
         // Draw topographical icons for terrain
         if (zoom > 0.5) {
-          drawTerrainIcon(ctx, pixelX, pixelY, terrain);
+          drawTerrainIcon(ctx, pixelX, pixelY, getHexTerrainName(col, row));
         }
       }
     }

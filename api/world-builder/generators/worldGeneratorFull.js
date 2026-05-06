@@ -6,14 +6,36 @@ const AdventureHookService = require('../services/adventureHookService');
 const WeatherService = require('../services/weatherService');
 const EconomicService = require('../services/economicService');
 const RippleEffectService = require('../services/rippleEffectService');
+const { generateFantasyWorld, getViableCityLocations, getTerrainName, getTerrainColor, calculateWorldStats } = require('./worldGenIntegration');
 
 class WorldGeneratorFull extends WorldGenerator {
   async generateCompleteWorld(params) {
     console.log('🌍 Generating complete world with all phases...');
 
-    // Phase 1: Base world generation
+    // Phase 0: Generate realistic fractal terrain first
+    console.log('🗺️ Generating fractal terrain...');
+    const seedNum = parseInt(this.seed, 10) || Math.floor(Math.random() * 1000000);
+    const terrainWorld = generateFantasyWorld({
+      seed: seedNum,
+      numberOfFaults: 60,
+      percentWater: 40,
+      percentIce: 5,
+    });
+    const viableLocations = getViableCityLocations(terrainWorld.hexGrid);
+    console.log(`✓ Phase 0: Generated terrain with ${viableLocations.length} viable city locations, ${terrainWorld.stats.waterPercent}% water`);
+
+    // Attach terrain data to generator so generateCities/POIs can use it
+    this.viableLocations = viableLocations;
+    this.hexGrid = terrainWorld.hexGrid;
+
+    // Phase 1: Base world generation (cities/POIs will use viable terrain locations)
     const world = this.generateWorld(params);
-    console.log(`✓ Phase 1: Generated ${world.cities.length} cities, ${world.pointsOfInterest.length} POIs`);
+
+    // Attach terrain map and stats to world
+    world.hexGrid = terrainWorld.hexGrid;
+    world.terrainStats = terrainWorld.stats;
+
+    console.log(`✓ Phase 1: Generated ${world.cities.length} cities, ${world.pointsOfInterest.length} POIs on realistic terrain`);
 
     // Phase 2: Deep lore, factions, detailed NPCs
     const factionService = new FactionService(world, world.npcs);

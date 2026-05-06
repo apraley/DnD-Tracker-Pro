@@ -142,6 +142,24 @@ export interface GenerationMetadata {
   dungeonsWithLayouts?: number;
 }
 
+export interface HexCell {
+  col: number;
+  row: number;
+  terrainType: number; // 0=deep ocean, 1=shallow, 2=coast, 3=beach, 4=grassland, 5=forest, 6=hills, 7=mountains, 8=high mountains, 9=ice
+  hex_x: number;
+  hex_y: number;
+}
+
+export interface TerrainStats {
+  water: number;
+  grassland: number;
+  forest: number;
+  mountains: number;
+  ice: number;
+  totalHexes: number;
+  waterPercent: number;
+}
+
 export interface World {
   id?: string;
   name: string;
@@ -160,6 +178,8 @@ export interface World {
   historicalEvents?: HistoricalEvent[];
   generationMetadata?: GenerationMetadata;
   mapVisualization?: string;
+  hexGrid?: Record<string, HexCell>;
+  terrainStats?: TerrainStats;
 }
 
 export interface WeatherPattern {
