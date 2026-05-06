@@ -6,6 +6,7 @@ import {
   generateDungeonName,
   generatePOIName,
   generateWonderName,
+  generateLandmarkName,
   resetNameGenerator
 } from '../utils/nameGenerator';
 import { generateTerrain, getViableLocations, getLandLocations } from '../utils/terrainGenerator';
@@ -71,16 +72,30 @@ export const useWorldBuilder = () => {
     }
 
     const pois: PointOfInterest[] = [];
-    const poiCount = 25;
-    const poiTypes = ['dungeon', 'ruins', 'natural_wonder', 'shrine', 'settlement', 'geographical_landmark'];
+    // More POIs, weighted toward dungeons and wonders (more interesting content)
+    const poiCount = Math.min(30 + ((params.civilizationAbundance || 5) * 2), 50);
+    const poiTypes = [
+      'dungeon', 'dungeon', 'dungeon',           // 3× — most common
+      'ruins', 'ruins',                           // 2×
+      'natural_wonder', 'natural_wonder',         // 2×
+      'geographical_landmark', 'geographical_landmark', // 2×
+      'cave', 'tomb', 'crypt', 'lair',            // 1× each
+      'shrine', 'settlement',                     // 1× each
+    ];
 
     for (let i = 0; i < poiCount; i++) {
       const poiType = poiTypes[i % poiTypes.length];
       const loc = shuffledPOIs[cityCount + i] || { col: Math.floor(Math.random() * 50), row: Math.floor(Math.random() * 50) };
       let poiName: string;
-      if (poiType === 'dungeon') poiName = generateDungeonName();
-      else if (poiType === 'natural_wonder' || poiType === 'geographical_landmark') poiName = generateWonderName();
-      else poiName = generatePOIName();
+      if (['dungeon', 'ruins', 'cave', 'tomb', 'crypt', 'lair'].includes(poiType)) {
+        poiName = generateDungeonName();
+      } else if (poiType === 'natural_wonder') {
+        poiName = generateWonderName();
+      } else if (poiType === 'geographical_landmark') {
+        poiName = generateLandmarkName();
+      } else {
+        poiName = generatePOIName();
+      }
 
       pois.push({
         id: `poi_${i}`,
