@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import WorldGeneratorForm from './components/WorldGeneratorForm';
 import HexMap from './components/HexMap';
-import EntityDetailsModal from './components/EntityDetailsModal';
 import AdventureForgeExport from './components/AdventureForgeExport';
+import DetailPanel from './components/DetailPanel';
 import { useWorldBuilder } from './hooks/useWorldBuilder';
 import { simulateExNovo } from './utils/exNovoSimulator';
+import { simulateExUmbra } from './utils/exUmbraSimulator';
 import { World, City, PointOfInterest, WorldParams } from './types/world';
 import './App.css';
 
@@ -20,6 +21,10 @@ function App() {
   const [showWorldLore, setShowWorldLore] = useState(false);
   const [worldLoreLoading, setWorldLoreLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mythweaverUrl, setMythweaverUrl] = useState(
+    import.meta.env.VITE_MYTHWEAVER_URL || 'http://localhost:5000'
+  );
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleGenerateWorld = async (params: WorldParams) => {
     try {
@@ -156,6 +161,7 @@ function App() {
           )}
           <AdventureForgeExport world={world} />
           <button className="btn btn-ghost" onClick={handleExportWorld}>📥 Export</button>
+          <button className="btn btn-ghost" onClick={() => setShowSettings(true)} title="Configure Mythweaver URL">⚙️</button>
           <button className="btn btn-ghost" onClick={() => { setWorld(null); setWorldLore(null); }}>🔄 New World</button>
         </div>
       </header>
@@ -200,6 +206,9 @@ function App() {
               const city = isCity(entity) ? entity : null;
               const poi = !isCity(entity) ? entity : null;
               const exNovo = city ? simulateExNovo(city, world.worldSeed) : null;
+              const isDungeon = poi && ['dungeon', 'ruins', 'cave', 'tomb', 'crypt', 'lair'].includes(poi.type);
+              const exUmbra = isDungeon && poi ? simulateExUmbra(poi, world.worldSeed) : null;
+              const tierColors: Record<number, string> = { 1: '#27ae60', 2: '#d4af37', 3: '#e67e22', 4: '#c0392b' };
               return (
                 <div
                   key={entity.id}
@@ -209,7 +218,16 @@ function App() {
                   <div className="entity-card-header">
                     <span className="entity-name">{entity.name}</span>
                     {city && <span className="entity-tag">{city.governmentType}</span>}
-                    {poi && <span className="entity-tag poi-tag">{poi.type.replace('_', ' ')}</span>}
+                    {poi && !exUmbra && <span className="entity-tag poi-tag">{poi.type.replace('_', ' ')}</span>}
+                    {exUmbra && (
+                      <span className="entity-tag poi-tag" style={{
+                        background: `${tierColors[exUmbra.crTier.tier]}22`,
+                        color: tierColors[exUmbra.crTier.tier],
+                        borderColor: `${tierColors[exUmbra.crTier.tier]}66`,
+                      }}>
+                        {exUmbra.crTier.label}
+                      </span>
+                    )}
                   </div>
                   {city && exNovo && (
                     <div className="entity-card-body">
@@ -219,7 +237,15 @@ function App() {
                       <div className="entity-founding">{exNovo.foundingStory.slice(0, 80)}…</div>
                     </div>
                   )}
-                  {poi && (
+                  {exUmbra && poi && (
+                    <div className="entity-card-body">
+                      <div className="entity-detail">⚔️ Boss: <strong>{exUmbra.boss}</strong></div>
+                      <div className="entity-detail">👥 Minions: <strong>{exUmbra.minions}</strong></div>
+                      <div className="entity-detail">⚠️ Danger: <strong>{poi.dangerLevel}/20</strong> · Levels {exUmbra.crTier.levelRange}</div>
+                      <div className="entity-founding">{exUmbra.origin.slice(0, 70)}…</div>
+                    </div>
+                  )}
+                  {poi && !exUmbra && (
                     <div className="entity-card-body">
                       <div className="entity-detail">⚠️ Danger: <strong>{poi.dangerLevel}/20</strong></div>
                       <div className="entity-founding">{poi.description.slice(0, 80)}…</div>
@@ -244,9 +270,46 @@ function App() {
         </main>
       </div>
 
-      {/* ── Entity Detail Modal ── */}
+      {/* ── Entity Detail Panel (slide-over) ── */}
       {selectedEntity && (
-        <EntityDetailsModal entity={selectedEntity} onClose={() => setSelectedEntity(null)} />
+        <DetailPanel
+          entity={selectedEntity}
+          world={world}
+          mythweaverUrl={mythweaverUrl}
+          onClose={() => setSelectedEntity(null)}
+        />
+      )}
+
+      {/* ── Settings Modal ── */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="lore-modal" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowSettings(false)}>✕</button>
+            <h2 className="lore-title">⚙️ Settings</h2>
+            <div style={{ marginTop: 20 }}>
+              <label style={{ display: 'block', fontSize: 12, color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Mythweaver / Game Master App URL
+              </label>
+              <input
+                type="text"
+                value={mythweaverUrl}
+                onChange={e => setMythweaverUrl(e.target.value)}
+                placeholder="http://localhost:5000"
+                style={{
+                  width: '100%', background: '#0f0f13', border: '1px solid #2e2e42',
+                  borderRadius: 4, color: '#e2e2e8', fontSize: 13, padding: '8px 12px',
+                  outline: 'none', fontFamily: 'Courier New, monospace',
+                }}
+              />
+              <p style={{ fontSize: 11, color: '#555566', marginTop: 8, lineHeight: 1.5 }}>
+                Set this to the URL of your running Game Master app. When you click "Launch in Mythweaver" from a city or dungeon panel, the dungeon/city data will be sent to this URL.
+              </p>
+            </div>
+            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
+              <button className="btn btn-lore" onClick={() => setShowSettings(false)}>Save</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── World Lore Modal ── */}
