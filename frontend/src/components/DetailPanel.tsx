@@ -6,6 +6,7 @@ import React from 'react';
 import { City, PointOfInterest, World } from '../types/world';
 import { simulateExNovo, ExNovoCity } from '../utils/exNovoSimulator';
 import { simulateExUmbra, buildMythweaverPayload, ExUmbraDungeon } from '../utils/exUmbraSimulator';
+import { generateDistrictEstablishments, Establishment, EstablishmentType } from '../utils/establishmentGenerator';
 
 interface DetailPanelProps {
   entity: City | PointOfInterest | null;
@@ -87,6 +88,236 @@ const RoomChip: React.FC<{ role: string; name: string; description: string }> = 
   );
 };
 
+// ─── Establishment Card ───────────────────────────────────────────────────
+
+const TYPE_LABEL: Record<EstablishmentType, string> = {
+  tavern: 'Tavern', inn: 'Inn', blacksmith: 'Blacksmith', general_store: 'General Store',
+  apothecary: 'Apothecary', alchemist: 'Alchemist', magic_shop: 'Magic Shop', bookshop: 'Bookshop',
+  jeweler: 'Jeweler', tailor: 'Tailor', provisioner: 'Provisioner', temple: 'Temple',
+  guildhall: 'Guildhall', guard_post: 'Guard Post', pawnbroker: 'Pawnbroker', scribe: 'Scribe',
+  chandler: 'Chandler', stablemaster: 'Stablemaster',
+};
+
+const TYPE_COLOR: Record<EstablishmentType, string> = {
+  tavern: '#e67e22', inn: '#27ae60', blacksmith: '#e74c3c', general_store: '#7f8c8d',
+  apothecary: '#2ecc71', alchemist: '#9b59b6', magic_shop: '#8e44ad', bookshop: '#2980b9',
+  jeweler: '#d4af37', tailor: '#16a085', provisioner: '#c0392b', temple: '#f39c12',
+  guildhall: '#2980b9', guard_post: '#7f8c8d', pawnbroker: '#795548', scribe: '#5d6d7e',
+  chandler: '#f39c12', stablemaster: '#795548',
+};
+
+const EstablishmentCard: React.FC<{ est: Establishment }> = ({ est }) => {
+  const [open, setOpen] = React.useState(false);
+  const color = TYPE_COLOR[est.type];
+
+  return (
+    <div style={{
+      background: '#111118',
+      border: `1px solid ${color}33`,
+      borderLeft: `3px solid ${color}`,
+      borderRadius: 6,
+      marginBottom: 8,
+      overflow: 'hidden',
+    }}>
+      {/* Header row */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '8px 12px', cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ fontSize: 16 }}>{est.emoji}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: '#e2e2e8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {est.name}
+          </div>
+          <div style={{ fontSize: 10, color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {TYPE_LABEL[est.type]}
+          </div>
+        </div>
+        <span style={{ fontSize: 10, color: '#444', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
+      </div>
+
+      {/* Expanded content */}
+      {open && (
+        <div style={{ padding: '0 12px 12px' }}>
+          {/* Proprietor */}
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', marginBottom: 2 }}>
+              Proprietor
+            </div>
+            <div style={{ fontSize: 11, color: color, fontWeight: 'bold' }}>{est.proprietor.name}</div>
+            <div style={{ fontSize: 11, color: '#777', lineHeight: 1.5, marginTop: 2 }}>
+              {est.proprietor.description}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div style={{ fontSize: 11, color: '#999', lineHeight: 1.5, marginBottom: 8, fontStyle: 'italic' }}>
+            {est.description}
+          </div>
+
+          {/* Pricing */}
+          {est.prices && (
+            <div style={{ fontSize: 10, color: '#d4af37', marginBottom: 8 }}>
+              💰 {est.prices}
+            </div>
+          )}
+
+          {/* Features */}
+          {est.features.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              {est.features.map((f, i) => (
+                <div key={i} style={{ fontSize: 11, color: '#888', lineHeight: 1.5, display: 'flex', gap: 6 }}>
+                  <span style={{ color: color, flexShrink: 0 }}>•</span>
+                  <span>{f}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Rumor (taverns) */}
+          {est.rumor && (
+            <div style={{
+              background: '#8e44ad18', border: '1px solid #8e44ad44',
+              borderRadius: 4, padding: '6px 10px', marginBottom: 8,
+            }}>
+              <div style={{ fontSize: 9, color: '#8e44ad', textTransform: 'uppercase', marginBottom: 3 }}>
+                Rumor heard here
+              </div>
+              <div style={{ fontSize: 11, color: '#b8b8c8', lineHeight: 1.5, fontStyle: 'italic' }}>
+                "{est.rumor}"
+              </div>
+            </div>
+          )}
+
+          {/* Menu (tavern/inn) */}
+          {est.menu && est.menu.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 9, color: '#555', textTransform: 'uppercase', marginBottom: 4 }}>
+                {est.type === 'inn' ? 'Notable' : 'Menu'}
+              </div>
+              {est.menu.map((m, i) => (
+                <div key={i} style={{ fontSize: 11, color: '#888', lineHeight: 1.5 }}>• {m}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Stock (shops) */}
+          {est.stock && est.stock.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 9, color: '#555', textTransform: 'uppercase', marginBottom: 4 }}>
+                In Stock
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 8px' }}>
+                {est.stock.map((s, i) => (
+                  <div key={i} style={{ fontSize: 10, color: '#888', lineHeight: 1.6 }}>• {s}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Services */}
+          {est.services && est.services.length > 0 && (
+            <div>
+              <div style={{ fontSize: 9, color: '#555', textTransform: 'uppercase', marginBottom: 4 }}>
+                Services
+              </div>
+              {est.services.map((s, i) => (
+                <div key={i} style={{ fontSize: 11, color: '#888', lineHeight: 1.6 }}>• {s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── District with Establishments ────────────────────────────────────────────
+
+const DistrictCard: React.FC<{
+  district: { name: string; description: string };
+  city: City;
+  worldSeed: string;
+  magicLevel: number;
+}> = ({ district, city, worldSeed, magicLevel }) => {
+  const [open, setOpen] = React.useState(false);
+  const [establishments, setEstablishments] = React.useState<Establishment[] | null>(null);
+  const [salt, setSalt] = React.useState(0);
+
+  const handleExplore = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open) {
+      // Generate on first open (or re-generate with new salt)
+      const ests = generateDistrictEstablishments(
+        district, city.id, city.name, worldSeed + salt, magicLevel
+      );
+      setEstablishments(ests);
+    }
+    setOpen(o => !o);
+  };
+
+  const handleReroll = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const nextSalt = salt + 1;
+    setSalt(nextSalt);
+    const ests = generateDistrictEstablishments(
+      district, city.id, city.name, worldSeed + nextSalt, magicLevel
+    );
+    setEstablishments(ests);
+  };
+
+  return (
+    <div style={{ background: '#1e1e28', border: '1px solid #2e2e42', borderRadius: 6, overflow: 'hidden' }}>
+      {/* District header */}
+      <div style={{ padding: '8px 12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: '#d4af37' }}>{district.name}</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {open && (
+              <button
+                onClick={handleReroll}
+                style={{
+                  fontSize: 10, padding: '2px 7px', cursor: 'pointer',
+                  background: 'transparent', border: '1px solid #2e2e42',
+                  borderRadius: 3, color: '#555', lineHeight: 1.4,
+                }}
+                title="Reroll establishments"
+              >↺ Reroll</button>
+            )}
+            <button
+              onClick={handleExplore}
+              style={{
+                fontSize: 10, padding: '2px 8px', cursor: 'pointer',
+                background: open ? '#d4af3722' : 'transparent',
+                border: `1px solid ${open ? '#d4af3766' : '#2e2e42'}`,
+                borderRadius: 3,
+                color: open ? '#d4af37' : '#666',
+                lineHeight: 1.4,
+              }}
+            >
+              {open ? '▲ Hide' : '🏪 Explore'}
+            </button>
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>{district.description}</div>
+      </div>
+
+      {/* Establishments */}
+      {open && establishments && (
+        <div style={{ padding: '0 10px 10px', borderTop: '1px solid #2e2e42', paddingTop: 10 }}>
+          {establishments.map(est => (
+            <EstablishmentCard key={est.id} est={est} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── City Detail ──────────────────────────────────────────────────────────
 
 const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythweaverUrl: string }> = ({ city, exNovo, world, mythweaverUrl }) => {
@@ -150,13 +381,16 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
         <p style={{ fontSize: 13, color: '#b8b8c8', lineHeight: 1.7 }}>{exNovo.specialty}</p>
       </Section>
 
-      <Section title="Districts">
+      <Section title="Districts — click 🏪 Explore to generate establishments">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {exNovo.districts.map(d => (
-            <div key={d.name} style={{ background: '#1e1e28', border: '1px solid #2e2e42', borderRadius: 6, padding: '8px 12px' }}>
-              <div style={{ fontSize: 12, fontWeight: 'bold', color: '#d4af37', marginBottom: 3 }}>{d.name}</div>
-              <div style={{ fontSize: 11, color: '#888', lineHeight: 1.4 }}>{d.description}</div>
-            </div>
+            <DistrictCard
+              key={d.name}
+              district={d}
+              city={city}
+              worldSeed={world.worldSeed}
+              magicLevel={world.magicLevel}
+            />
           ))}
         </div>
       </Section>
