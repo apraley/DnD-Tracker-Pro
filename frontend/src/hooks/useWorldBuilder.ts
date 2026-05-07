@@ -1,6 +1,6 @@
 // Hook for world builder API interactions
 import { useState } from 'react';
-import { World, WorldParams, City, PointOfInterest } from '../types/world';
+import { World, WorldParams, City, PointOfInterest, Route } from '../types/world';
 import {
   generateCityName,
   generateDungeonName,
@@ -10,6 +10,18 @@ import {
   resetNameGenerator
 } from '../utils/nameGenerator';
 import { generateTerrain, getViableLocations, getLandLocations } from '../utils/terrainGenerator';
+import { simulateExNovo } from '../utils/exNovoSimulator';
+import { fnv1a } from '../utils/establishmentGenerator';
+import { exportForGrimoire } from '../utils/grimoireExport';
+
+// Hex terrain type → travel label
+const HEX_TERRAIN_LABEL: Record<number, string> = {
+  0: 'sea', 1: 'sea', 2: 'sea',
+  3: 'coast', 4: 'forest', 5: 'forest', 6: 'forest',
+  7: 'plains', 8: 'savanna', 9: 'desert',
+  10: 'hills', 11: 'mountain', 12: 'mountain',
+  13: 'tundra', 14: 'ice',
+};
 
 export const useWorldBuilder = () => {
   const [loading, setLoading] = useState(false);
@@ -22,6 +34,20 @@ export const useWorldBuilder = () => {
     try {
       const world = generateLocalWorld(params);
       setWorld(world);
+
+      // ── Priority 1: Persist to localStorage for GRIMOIRE ──────────────────
+      try {
+        const payload = exportForGrimoire(world);
+        localStorage.setItem('grimoire-world', JSON.stringify(payload));
+        localStorage.setItem('grimoire-world-meta', JSON.stringify({
+          worldName: world.name,
+          savedAt: Date.now(),
+          version: 1,
+        }));
+      } catch (storageErr) {
+        console.warn('localStorage write failed (may be full or unavailable):', storageErr);
+      }
+
       return world;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
@@ -37,6 +63,7 @@ export const useWorldBuilder = () => {
 
     const seed = Math.floor(Math.random() * 1000000);
     const worldSeed = seed.toString();
+    const magicLevel = params.magicLevel ?? 5;
 
     // Generate fractal terrain client-side — climate + terrain drive water%, ice%, biome distribution
     const { hexGrid, stats, width: mapW, height: mapH } = generateTerrain(
@@ -58,9 +85,13 @@ export const useWorldBuilder = () => {
 
     for (let i = 0; i < cityCount; i++) {
       const loc = shuffledCities[i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
+      const cityName = generateCityName();
+      // ── Priority 3: stable seeded ID — same seed+index+name always → same ID
+      const cityId = `city_${fnv1a(worldSeed + '|' + i + '|' + cityName).toString(16)}`;
+
       cities.push({
-        id: `city_${i}`,
-        name: generateCityName(),
+        id: cityId,
+        name: cityName,
         population: Math.floor(Math.random() * 50000) + 5000,
         hex_x: loc.col,
         hex_y: loc.row,
@@ -75,16 +106,24 @@ export const useWorldBuilder = () => {
       } as City);
     }
 
+    // ── Priority 2: Pre-generate ExNovo districts with establishments ─────────
+    for (const city of cities) {
+      const exNovo = simulateExNovo(city, worldSeed, magicLevel);
+      city.exNovoMetadata = {
+        districtCount: exNovo.districts.length,
+        districts: exNovo.districts,
+      };
+    }
+
     const pois: PointOfInterest[] = [];
-    // More POIs, weighted toward dungeons and wonders (more interesting content)
     const poiCount = Math.min(30 + ((params.civilizationAbundance || 5) * 2), 50);
     const poiTypes = [
-      'dungeon', 'dungeon', 'dungeon',           // 3× — most common
-      'ruins', 'ruins',                           // 2×
-      'natural_wonder', 'natural_wonder',         // 2×
-      'geographical_landmark', 'geographical_landmark', // 2×
-      'cave', 'tomb', 'crypt', 'lair',            // 1× each
-      'shrine', 'settlement',                     // 1× each
+      'dungeon', 'dungeon', 'dungeon',
+      'ruins', 'ruins',
+      'natural_wonder', 'natural_wonder',
+      'geographical_landmark', 'geographical_landmark',
+      'cave', 'tomb', 'crypt', 'lair',
+      'shrine', 'settlement',
     ];
 
     for (let i = 0; i < poiCount; i++) {
@@ -101,8 +140,11 @@ export const useWorldBuilder = () => {
         poiName = generatePOIName();
       }
 
+      // ── Priority 3: stable seeded POI ID
+      const poiId = `poi_${fnv1a(worldSeed + '|' + i + '|' + poiName).toString(16)}`;
+
       pois.push({
-        id: `poi_${i}`,
+        id: poiId,
         name: poiName,
         type: poiType,
         hex_x: loc.col,
@@ -115,10 +157,38 @@ export const useWorldBuilder = () => {
       } as PointOfInterest);
     }
 
+    // ── Priority 4: City-to-city routes (5 nearest neighbours per city) ──────
+    const routes: Route[] = [];
+    const seenPairs = new Set<string>();
+    for (const city of cities) {
+      const nearest = cities
+        .filter(c => c.id !== city.id)
+        .map(c => ({
+          city: c,
+          dist: Math.round(Math.sqrt((c.hex_x - city.hex_x) ** 2 + (c.hex_y - city.hex_y) ** 2)),
+        }))
+        .sort((a, b) => a.dist - b.dist)
+        .slice(0, 5);
+
+      for (const { city: other, dist } of nearest) {
+        const pairKey = [city.id, other.id].sort().join('|');
+        if (seenPairs.has(pairKey)) continue;
+        seenPairs.add(pairKey);
+
+        // Sample midpoint hex for dominant terrain
+        const midCol = Math.round((city.hex_x + other.hex_x) / 2);
+        const midRow = Math.round((city.hex_y + other.hex_y) / 2);
+        const midHex = hexGrid[`${midCol},${midRow}`];
+        const dominantTerrain = midHex ? (HEX_TERRAIN_LABEL[midHex.terrainType] ?? 'plains') : 'plains';
+
+        routes.push({ fromCityId: city.id, toCityId: other.id, distanceHexes: dist, dominantTerrain });
+      }
+    }
+
     return {
       name: params.name || 'Generated World',
       age: params.age || 2500,
-      magicLevel: params.magicLevel || 5,
+      magicLevel,
       civilizationAbundance: params.civilizationAbundance || 5,
       climate: params.climate || 'Temperate',
       terrain: params.terrain || 'Mixed',
@@ -133,6 +203,7 @@ export const useWorldBuilder = () => {
       terrainStats: stats,
       mapWidth: mapW,
       mapHeight: mapH,
+      routes,
     } as World;
   };
 
@@ -165,7 +236,7 @@ export const useWorldBuilder = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': 'current-user-id' // Replace with actual user ID from auth
+          'x-user-id': 'current-user-id'
         },
         body: JSON.stringify({
           action: 'saveWorld',

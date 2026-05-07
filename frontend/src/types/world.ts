@@ -36,6 +36,21 @@ export interface City {
     districtCount?: number;
     phases?: Array<{ phase: string; description: string }>;
     resources?: string[];
+    /** Populated at world-generation time for GRIMOIRE export */
+    districts?: Array<{
+      name: string;
+      description: string;
+      character: string;
+      establishments: Array<{
+        id: string;
+        name: string;
+        type: string;
+        quality: 'squalid' | 'poor' | 'modest' | 'comfortable' | 'wealthy';
+        proprietor: { name: string; race: string; description: string };
+        rumor?: string;
+        stock?: string[];
+      }>;
+    }>;
   };
   factions?: Faction[];
   landmarks?: Array<{ id: string; name: string; description?: string }>;
@@ -160,6 +175,15 @@ export interface TerrainStats {
   waterPercent: number;
 }
 
+export interface Route {
+  fromCityId: string;
+  toCityId: string;
+  /** Euclidean distance in hex units */
+  distanceHexes: number;
+  /** Terrain at the midpoint of the route */
+  dominantTerrain: string;
+}
+
 export interface World {
   id?: string;
   name: string;
@@ -182,6 +206,7 @@ export interface World {
   terrainStats?: TerrainStats;
   mapWidth?: number;
   mapHeight?: number;
+  routes?: Route[];
 }
 
 export interface WeatherPattern {

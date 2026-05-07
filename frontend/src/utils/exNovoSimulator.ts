@@ -5,6 +5,7 @@
  */
 
 import { City, NPC, Faction } from '../types/world';
+import { generateDistrictEstablishments, Establishment } from './establishmentGenerator';
 
 // ─── Data Tables ────────────────────────────────────────────────────────────
 
@@ -791,7 +792,12 @@ function genName(rng: () => number): string {
 export interface ExNovoCity {
   foundingStory: string;
   age: string;
-  districts: Array<{ name: string; description: string }>;
+  districts: Array<{
+    name: string;
+    description: string;
+    character: string;
+    establishments: Establishment[];
+  }>;
   specialty: string;
   currentProblem: string;
   secret: string;
@@ -802,7 +808,24 @@ export interface ExNovoCity {
   factions: Faction[];
 }
 
-export function simulateExNovo(city: City, worldSeed: string): ExNovoCity {
+function getDistrictCharacter(districtName: string): string {
+  const n = districtName.toLowerCase();
+  if (/merchant|counting|trade|market|spice|grain|flower|moneylend|exchange|broker|tradespire/.test(n)) return 'merchant';
+  if (/tangle|warren|rookery|pit|undertow|slaughter|quarter of the lost|warrens/.test(n)) return 'slum';
+  if (/high ward|garden ward/.test(n)) return 'wealthy-residential';
+  if (/dock|harbor|harbour|fishmonger|rope walk|tangles/.test(n)) return 'dockside';
+  if (/temple|shrine|pilgrim|mourning/.test(n)) return 'religious';
+  if (/barrack|military|mercenari/.test(n)) return 'military';
+  if (/scholar|library|astronomer|instrument|clockwork|scribe|lawyer|booksell|inktown/.test(n)) return 'academic';
+  if (/forge|smith|armour|fletcher|stoneyard|mason|loom|weaver|dyer|joiner|cobbler|saddler|chandler|baker|brewer|distill|vintner|potter|tanner|glasswork|perfum|printer|tailor|hatter/.test(n)) return 'industrial';
+  if (/entertain|gambl|theatre|acrobat/.test(n)) return 'entertainment';
+  if (/arcane|alchemist|runesmith|magic precinct|arcane precinct/.test(n)) return 'arcane';
+  if (/vault|vaults|silver row|moneylend/.test(n)) return 'financial';
+  if (/pale quarter|foreigner|pilgrim quarter/.test(n)) return 'foreign-quarter';
+  return 'mixed';
+}
+
+export function simulateExNovo(city: City, worldSeed: string, magicLevel = 5): ExNovoCity {
   // FNV-1a hash of "cityId|worldSeed" — ensures city_0 and city_1 get completely
   // different seeds even though their IDs differ by only one character.
   const seedNum = fnv1a(city.id + '|' + worldSeed);
@@ -815,7 +838,12 @@ export function simulateExNovo(city: City, worldSeed: string): ExNovoCity {
 
   const ageEntry = pick(CITY_AGES, rng);
   const districtCount = Math.min(Math.max(2, Math.floor(rng() * 3) + 3 + ageEntry.districtBonus), 6);
-  const districts = pickN(DISTRICT_TYPES, districtCount, rng);
+  const rawDistricts = pickN(DISTRICT_TYPES, districtCount, rng);
+  const districts = rawDistricts.map(d => ({
+    ...d,
+    character: getDistrictCharacter(d.name),
+    establishments: generateDistrictEstablishments(d, city.id, city.name, worldSeed, magicLevel),
+  }));
 
   const spQ = pick(SP_QUALITY, rng);
   const spP = pick(SP_PRODUCT, rng);
