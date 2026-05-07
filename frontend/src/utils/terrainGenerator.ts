@@ -1,8 +1,18 @@
 /**
- * Client-side terrain generator — fractional Brownian motion (fBm) noise.
- * Replaces the broken fault-line algorithm.
- * Deterministic: same seed always produces the same world.
+ * World Generator — Plate Tectonic + Climate Model
+ *
+ * Pipeline:
+ *  1. Random grid size (landscape aspect ratio, 100–180 wide)
+ *  2. Voronoi plate assignment  → base elevation (oceanic vs continental)
+ *  3. Plate-boundary analysis   → mountain ranges, trenches, mid-ocean ridges
+ *  4. fBm detail noise          → coastline roughness, local relief
+ *  5. Percentile thresholds     → guaranteed water/land split
+ *  6. Moisture BFS from coast   → how far inland precipitation reaches
+ *  7. Latitude climate bands    → tropical / temperate / polar zones
+ *  8. Biome assignment          → elevation + moisture + latitude → terrain type
  */
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface HexCell {
   col: number;
@@ -14,10 +24,10 @@ export interface HexCell {
 
 export interface TerrainStats {
   water: number;
-  grassland: number;
-  forest: number;
-  mountains: number;
-  ice: number;
+  grassland: number;   // grassland + savanna + desert + beach
+  forest: number;      // tropical + temperate + boreal
+  mountains: number;   // hills + mountains + high mountains
+  ice: number;         // tundra + ice sheet
   totalHexes: number;
   waterPercent: number;
 }
@@ -26,33 +36,47 @@ export interface GeneratedTerrain {
   hexGrid: Record<string, HexCell>;
   stats: TerrainStats;
   seed: number;
+  width: number;
+  height: number;
 }
 
-// Terrain type constants
-// 0=deep ocean, 1=shallow water, 2=coast, 3=beach,
-// 4=grassland, 5=forest, 6=hills, 7=mountains, 8=high mountains, 9=ice
+// ─── Terrain type constants ───────────────────────────────────────────────────
+//  0  deep ocean        7  grassland
+//  1  ocean             8  savanna
+//  2  shallow water     9  desert
+//  3  beach            10  hills
+//  4  tropical forest  11  mountains
+//  5  temperate forest 12  high mountains
+//  6  boreal forest    13  tundra
+//                      14  ice sheet
 
 export const TERRAIN_COLORS: Record<number, string> = {
-  0: '#0a2d6e',
-  1: '#1a5ca8',
-  2: '#2e7fcc',
-  3: '#c2a06e',
-  4: '#6abf47',
-  5: '#2d8a3e',
-  6: '#8b6914',
-  7: '#7d7d7d',
-  8: '#4a4a4a',
-  9: '#ddf0f7',
+  0:  '#06184f',   // deep ocean
+  1:  '#0e3d82',   // ocean
+  2:  '#2472b8',   // shallow water
+  3:  '#d4bc80',   // beach
+  4:  '#1a5c1e',   // tropical forest
+  5:  '#2e7d32',   // temperate forest
+  6:  '#4a6741',   // boreal / taiga
+  7:  '#7cbf3a',   // grassland
+  8:  '#b8a435',   // savanna
+  9:  '#c9a84c',   // desert
+  10: '#8b7040',   // hills
+  11: '#868674',   // mountains
+  12: '#555555',   // high mountains
+  13: '#8fa8a0',   // tundra
+  14: '#cce8f0',   // ice sheet
 };
 
 export const TERRAIN_NAMES: Record<number, string> = {
-  0: 'Deep Ocean', 1: 'Shallow Water', 2: 'Coastline', 3: 'Beach',
-  4: 'Grassland', 5: 'Forest', 6: 'Hills', 7: 'Mountains',
-  8: 'High Mountains', 9: 'Ice/Snow',
+  0: 'Deep Ocean', 1: 'Ocean', 2: 'Shallow Water', 3: 'Beach',
+  4: 'Tropical Forest', 5: 'Temperate Forest', 6: 'Boreal Forest',
+  7: 'Grassland', 8: 'Savanna', 9: 'Desert',
+  10: 'Hills', 11: 'Mountains', 12: 'High Mountains',
+  13: 'Tundra', 14: 'Ice Sheet',
 };
 
-// ─── Hash-based smooth value noise ───────────────────────────────────────────
-// Completely deterministic by (ix, iy, seed) — no PRNG state.
+// ─── Hash / noise primitives ──────────────────────────────────────────────────
 
 function hash2(ix: number, iy: number, seed: number): number {
   let h = ((seed * 2246822519) ^ (ix * 374761393) ^ (iy * 668265263)) >>> 0;
@@ -61,13 +85,11 @@ function hash2(ix: number, iy: number, seed: number): number {
   return h / 0x100000000;
 }
 
-function smoothstep(t: number): number {
-  return t * t * (3 - 2 * t);
-}
+function smoothstep(t: number): number { return t * t * (3 - 2 * t); }
 
-function valueNoise(nx: number, ny: number, seed: number): number {
+export function valueNoise(nx: number, ny: number, seed: number): number {
   const ix = Math.floor(nx), iy = Math.floor(ny);
-  const fx = nx - ix, fy = ny - iy;
+  const fx = nx - ix,       fy = ny - iy;
   const ux = smoothstep(fx), uy = smoothstep(fy);
   const v00 = hash2(ix,     iy,     seed);
   const v10 = hash2(ix + 1, iy,     seed);
@@ -76,142 +98,236 @@ function valueNoise(nx: number, ny: number, seed: number): number {
   return v00 + (v10 - v00) * ux + (v01 - v00) * uy + (v00 - v10 - v01 + v11) * ux * uy;
 }
 
-// 5-octave fBm — gives organic, fractal-looking terrain
 function fbm(nx: number, ny: number, seed: number): number {
-  const v =
+  return (
     1.000 * valueNoise(nx *  2, ny *  2, seed)       +
     0.500 * valueNoise(nx *  4, ny *  4, seed + 137) +
     0.250 * valueNoise(nx *  8, ny *  8, seed + 271) +
     0.125 * valueNoise(nx * 16, ny * 16, seed + 409) +
-    0.062 * valueNoise(nx * 32, ny * 32, seed + 547);
-  return v / 1.937; // sum of weights → normalise to ~[0,1]
+    0.062 * valueNoise(nx * 32, ny * 32, seed + 547)
+  ) / 1.937;
 }
 
-// ─── Elevation → terrain type ─────────────────────────────────────────────────
-// Thresholds are nine percentile boundary values (t[0]…t[8]):
-//   t[0]: deep ocean → shallow water
-//   t[1]: shallow water → coastline
-//   t[2]: coastline → beach
-//   t[3]: beach → grassland
-//   t[4]: grassland → forest
-//   t[5]: forest → hills
-//   t[6]: hills → mountains
-//   t[7]: mountains → high mountains
-//   t[8]: anything at or above this → ice/snow
-
-function elevationToType(elev: number, t: number[]): number {
-  if (elev >= t[8]) return 9; // ice / snow
-  if (elev < t[0])  return 0; // deep ocean
-  if (elev < t[1])  return 1; // shallow water
-  if (elev < t[2])  return 2; // coastline
-  if (elev < t[3])  return 3; // beach
-  if (elev < t[4])  return 4; // grassland
-  if (elev < t[5])  return 5; // forest
-  if (elev < t[6])  return 6; // hills
-  if (elev < t[7])  return 7; // mountains
-  return 8;                    // high mountains
+// Simple seeded LCG — used for plate placement so it's deterministic
+function makeRng(seed: number) {
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  return () => {
+    s = ((Math.imul(1664525, s) + 1013904223) >>> 0);
+    return s / 0x100000000;
+  };
 }
 
 // ─── Main generator ───────────────────────────────────────────────────────────
 
-export function generateTerrain(seed: number, percentWater = 40, percentIce = 5): GeneratedTerrain {
-  const HEX = 51;
-  const elev = new Float32Array(HEX * HEX);
+export function generateTerrain(seed: number, percentWater = 40, _percentIce = 8): GeneratedTerrain {
+  const rng = makeRng(seed);
 
-  // ── Continental shape generator ───────────────────────────────────────────
-  // Strategy: domain-warped mid-frequency noise creates 2-4 organic landmasses.
-  //  1. Two low-frequency value-noise layers warp the sampling coordinates —
-  //     this bends the continental boundaries into irregular coastline shapes.
-  //  2. A mid-frequency fBm sampled at the warped coords produces 2-4 high regions
-  //     (continents) separated by low regions (oceans).
-  //  3. Fine-detail fBm is blended in for local terrain variety (hills, bays, etc.).
-  //  4. A soft edge fade reduces elevation near the map border so the world doesn't
-  //     end abruptly (but is mild enough to allow coastal hexes anywhere).
+  // 1. ── Grid size (landscape, randomly chosen) ──────────────────────────────
+  const WIDTHS = [100, 120, 140, 160, 180];
+  const W = WIDTHS[Math.floor(rng() * WIDTHS.length)];
+  const H = Math.round(W * 0.56);   // ~16:9 landscape
 
-  for (let col = 0; col < HEX; col++) {
-    for (let row = 0; row < HEX; row++) {
-      const nx = col / (HEX - 1); // [0..1]
-      const ny = row / (HEX - 1);
+  // 2. ── Plate generation ────────────────────────────────────────────────────
+  const numPlates = 8 + Math.floor(rng() * 5); // 8–12
+  const plates = Array.from({ length: numPlates }, (_, id) => ({
+    id,
+    cx: rng() * W,
+    cy: rng() * H,
+    isOceanic: rng() < 0.55,          // 55 % oceanic → more ocean by default
+    driftX: (rng() - 0.5) * 2,
+    driftY: (rng() - 0.5) * 2,
+  }));
 
-      // Domain warp: offset the sample coords so continent outlines are jagged/organic
-      const warpX = valueNoise(nx * 2.1, ny * 2.1, seed + 500) - 0.5; // [-0.5, 0.5]
-      const warpY = valueNoise(nx * 2.1, ny * 2.1, seed + 501) - 0.5;
+  // 3. ── Per-hex elevation from plate tectonics + fBm detail ─────────────────
+  const elev    = new Float32Array(W * H);
+  const plateOf = new Uint8Array(W * H);
 
-      // Mid-frequency fBm sampled at warped coords → 2–4 distinct landmasses
-      // Frequency 2.5 means ~2.5 oscillations across the map width, giving ~2-4 peaks
-      const cx = nx * 2.5 + warpX * 0.6;
-      const cy = ny * 2.5 + warpY * 0.6;
-      const continental = fbm(cx, cy, seed + 1000);
+  for (let col = 0; col < W; col++) {
+    for (let row = 0; row < H; row++) {
+      const idx = col * H + row;
 
-      // Fine detail fBm for local terrain variation (coastline roughness, mountains)
-      const detail = fbm(nx, ny, seed);
+      // Voronoi: nearest and second-nearest plate distances
+      let d1 = Infinity, d2 = Infinity, p1 = 0, p2 = -1;
+      for (let p = 0; p < numPlates; p++) {
+        const dx = col - plates[p].cx, dy = row - plates[p].cy;
+        const d  = dx * dx + dy * dy; // squared — fine for comparison
+        if (d < d1) { d2 = d1; p2 = p1; d1 = d; p1 = p; }
+        else if (d < d2) { d2 = d; p2 = p; }
+      }
+      plateOf[idx] = p1;
 
-      // Soft border fade: gently push map edges toward ocean without forcing a single central island.
-      // Uses a squared smoothstep so edges are ocean-leaning but interior is unconstrained.
-      const bx = Math.min(nx, 1 - nx) * 4; // 0 at edge → 1 at quarter-in → stays 1
-      const by = Math.min(ny, 1 - ny) * 4;
-      const border = Math.min(1, bx) * Math.min(1, by); // 0..1, 0 at corners
-      const fade = Math.pow(border, 0.4);               // gentle: 0 at edges, ~1 inside
+      // Base elevation from plate type
+      const plate = plates[p1];
+      let e = plate.isOceanic ? 0.27 : 0.61;
 
-      elev[col * HEX + row] = (continental * 0.55 + detail * 0.45) * (0.6 + 0.4 * fade);
+      // Boundary proximity (in actual hex units)
+      const borderDist = (Math.sqrt(d2) - Math.sqrt(d1));
+      const borderFactor = Math.max(0, 1 - borderDist / 9); // falls off over ~9 hexes
+
+      if (borderFactor > 0 && p2 >= 0) {
+        const nb = plates[p2];
+        // Direction from plate center toward neighbour plate center
+        const tx  = nb.cx - plate.cx, ty = nb.cy - plate.cy;
+        const tLen = Math.sqrt(tx * tx + ty * ty) || 1;
+        const tnx = tx / tLen, tny = ty / tLen;
+        // Relative drift projected onto the boundary direction → convergence
+        const conv = (plate.driftX - nb.driftX) * tnx + (plate.driftY - nb.driftY) * tny;
+
+        if (!plate.isOceanic && !nb.isOceanic) {
+          // Continental collision → tall mountain range
+          if (conv > 0) e += borderFactor * conv * 0.50;
+        } else if (!plate.isOceanic && nb.isOceanic) {
+          // Subduction: volcanic arc on continental side
+          if (conv > 0) e += borderFactor * conv * 0.35;
+        } else if (plate.isOceanic && !nb.isOceanic) {
+          // Subduction: trench on oceanic side
+          if (conv > 0) e -= borderFactor * conv * 0.18;
+        } else {
+          // Oceanic–oceanic: mid-ocean ridge (subtle)
+          e += borderFactor * 0.07;
+        }
+      }
+
+      // fBm detail (domain-warped for organic coastlines)
+      const nx = col / (W - 1), ny = row / (H - 1);
+      const wx = valueNoise(nx * 2.5, ny * 2.5, seed + 500) - 0.5;
+      const wy = valueNoise(nx * 2.5, ny * 2.5, seed + 501) - 0.5;
+      const detail = fbm(nx * 3 + wx * 0.4, ny * 3 + wy * 0.4, seed);
+
+      // Soft border fade so map edges are ocean-leaning (no abrupt clipping)
+      const bx   = Math.min(col, W - 1 - col) / (W * 0.12);
+      const by   = Math.min(row, H - 1 - row) / (H * 0.12);
+      const fade = Math.pow(Math.min(1, bx) * Math.min(1, by), 0.5);
+
+      elev[idx] = (e * 0.62 + detail * 0.38) * (0.55 + 0.45 * fade);
     }
   }
 
-  // Build percentile-based thresholds so terrain variety is guaranteed
-  // regardless of the actual fBm value range.
+  // 4. ── Percentile thresholds → guaranteed water/land split ─────────────────
   const sorted = Array.from(elev).sort((a, b) => a - b);
   const n = sorted.length;
-  const p = (frac: number) => sorted[Math.min(n - 1, Math.floor(frac * n))];
+  const p = (f: number) => sorted[Math.min(n - 1, Math.floor(f * n))];
 
-  const wF = percentWater / 100;   // fraction of hexes that are water (default 0.40)
-  const iF = percentIce   / 100;   // fraction of hexes that are ice   (default 0.05)
-  const lF = 1 - wF - iF;          // fraction of hexes that are land  (default 0.55)
+  const wF = percentWater / 100;
+  const deepT    = p(wF * 0.40);
+  const oceanT   = p(wF * 0.75);
+  const shallowT = p(wF);
 
-  // Nine threshold values dividing the elevation range into 10 terrain bands.
-  // Water subtypes occupy [0, wF):  deep=lower 50%, shallow=50-80%, coast=80-100%
-  // Land subtypes occupy [wF, 1-iF): proportional slices of lF
-  // Ice occupies [1-iF, 1]
-  const thresholds: number[] = [
-    p(wF * 0.50),              // [0] deep → shallow
-    p(wF * 0.80),              // [1] shallow → coast
-    p(wF),                     // [2] coast → beach
-    p(wF + lF * 0.05),         // [3] beach → grassland  (~3% of hexes are beach)
-    p(wF + lF * 0.28),         // [4] grassland → forest (~23% grassland)
-    p(wF + lF * 0.52),         // [5] forest → hills     (~24% forest)
-    p(wF + lF * 0.72),         // [6] hills → mountains  (~20% hills)
-    p(wF + lF * 0.87),         // [7] mountains → highmtn(~15% mountains)
-    p(1 - iF),                 // [8] highmtn → ice      ( ~8% high mtn, 5% ice)
-  ];
+  // Land elevation band breakpoints (fraction of the land portion 0..1)
+  const beachT   = p(wF + (1 - wF) * 0.04);
+  const flatTopT = p(wF + (1 - wF) * 0.66);
+  const hillT    = p(wF + (1 - wF) * 0.82);
+  const mtnT     = p(wF + (1 - wF) * 0.93);
 
+  // 5. ── Water type pass + water-distance BFS setup ──────────────────────────
+  const isWater = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    isWater[i] = elev[i] <= shallowT ? 1 : 0;
+  }
+
+  // BFS: distance from nearest water hex (Manhattan-ish via 4-connectivity)
+  const coastDist = new Float32Array(W * H).fill(1e9);
+  const queue: number[] = [];
+  for (let col = 0; col < W; col++) {
+    for (let row = 0; row < H; row++) {
+      const idx = col * H + row;
+      if (isWater[idx]) { coastDist[idx] = 0; queue.push(idx); }
+    }
+  }
+  let qi = 0;
+  while (qi < queue.length) {
+    const idx = queue[qi++];
+    const col = Math.floor(idx / H);
+    const row = idx % H;
+    const d   = coastDist[idx] + 1;
+    for (const [dc, dr] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nc = col + dc, nr = row + dr;
+      if (nc < 0 || nc >= W || nr < 0 || nr >= H) continue;
+      const ni = nc * H + nr;
+      if (coastDist[ni] > d) { coastDist[ni] = d; queue.push(ni); }
+    }
+  }
+
+  let maxDist = 1;
+  for (let i = 0; i < W * H; i++) if (coastDist[i] < 1e9 && coastDist[i] > maxDist) maxDist = coastDist[i];
+
+  // 6. ── Biome assignment ────────────────────────────────────────────────────
   const hexGrid: Record<string, HexCell> = {};
   const stats: TerrainStats = {
     water: 0, grassland: 0, forest: 0, mountains: 0, ice: 0,
     totalHexes: 0, waterPercent: 0,
   };
 
-  for (let col = 0; col < HEX; col++) {
-    for (let row = 0; row < HEX; row++) {
-      const e = elev[col * HEX + row];
-      const t = elevationToType(e, thresholds);
-      // hex_x / hex_y mirror col / row so both names work downstream
+  for (let col = 0; col < W; col++) {
+    for (let row = 0; row < H; row++) {
+      const idx = col * H + row;
+      const e   = elev[idx];
+      // lat: 0 = equator (map centre), 1 = polar (map top/bottom)
+      const lat = Math.abs(row / (H - 1) - 0.5) * 2;
+      // moisture: 1 = coastal, 0 = deep interior; scaled by latitude (tropics wetter)
+      const rawMoist = 1 - Math.min(1, coastDist[idx] / (maxDist * 0.65));
+      const latMoist = 1 - Math.max(0, (lat - 0.20) / 0.50); // tropics/temp wetter than poles
+      const moisture = rawMoist * 0.65 + latMoist * 0.35;
+
+      let t: number;
+
+      if (e <= deepT)    { t = 0;  }  // deep ocean
+      else if (e <= oceanT)  { t = 1;  }  // ocean
+      else if (e <= shallowT){ t = 2;  }  // shallow water
+      else if (e <= beachT)  { t = 3;  }  // beach
+      else if (e >= mtnT) {
+        // High elevation: glaciated peaks only in polar latitudes
+        t = lat > 0.68 ? 14 : 12;
+      } else if (e >= hillT) {
+        // Mountain zone
+        t = lat > 0.72 ? 13 : 11;
+      } else if (e >= flatTopT) {
+        // Hills zone
+        t = lat > 0.78 ? 13 : 10;
+      } else {
+        // Flat land — latitude + moisture → biome
+        if (lat > 0.83) {
+          t = 13;  // arctic tundra
+        } else if (lat > 0.68) {
+          t = moisture > 0.35 ? 6 : 13;  // boreal forest or tundra
+        } else if (lat > 0.38) {
+          // Temperate band
+          if (moisture > 0.55) t = 5;       // temperate forest
+          else if (moisture > 0.25) t = 7;  // grassland
+          else t = 9;                        // cold desert / steppe
+        } else if (lat > 0.18) {
+          // Subtropical band (dry belt ~25-35°)
+          if (moisture > 0.52) t = 5;       // mediterranean forest
+          else if (moisture > 0.28) t = 8;  // savanna
+          else t = 9;                        // desert
+        } else {
+          // Tropical band
+          if (moisture > 0.48) t = 4;       // tropical forest
+          else if (moisture > 0.22) t = 8;  // tropical savanna
+          else t = 9;                        // tropical desert
+        }
+      }
+
       hexGrid[`${col},${row}`] = { col, row, terrainType: t, hex_x: col, hex_y: row };
       stats.totalHexes++;
-      if (t <= 2)      stats.water++;
-      else if (t <= 4) stats.grassland++;
-      else if (t <= 6) stats.forest++;
-      else if (t <= 8) stats.mountains++;
-      else             stats.ice++;
+
+      if (t <= 2)               stats.water++;
+      else if (t >= 4 && t <= 6) stats.forest++;
+      else if (t >= 10 && t <= 12) stats.mountains++;
+      else if (t >= 13)          stats.ice++;
+      else                        stats.grassland++;  // 3 (beach), 7-9 (grass/sav/desert)
     }
   }
 
   stats.waterPercent = Math.round((stats.water / stats.totalHexes) * 100);
-  return { hexGrid, stats, seed };
+  return { hexGrid, stats, seed, width: W, height: H };
 }
 
 // ─── Location helpers ─────────────────────────────────────────────────────────
 
 export function getViableLocations(hexGrid: Record<string, HexCell>): HexCell[] {
-  return Object.values(hexGrid).filter(h => h.terrainType >= 4 && h.terrainType <= 6);
+  // Cities prefer flat land: beach(3) through hills(10), excluding mountains/ice
+  return Object.values(hexGrid).filter(h => h.terrainType >= 3 && h.terrainType <= 10);
 }
 
 export function getLandLocations(hexGrid: Record<string, HexCell>): HexCell[] {

@@ -39,7 +39,7 @@ export const useWorldBuilder = () => {
     const worldSeed = seed.toString();
 
     // Generate fractal terrain client-side
-    const { hexGrid, stats } = generateTerrain(seed, 40, 5);
+    const { hexGrid, stats, width: mapW, height: mapH } = generateTerrain(seed, 40, 8);
     const viableForCities = getViableLocations(hexGrid);
     const viableForPOIs = getLandLocations(hexGrid);
 
@@ -53,7 +53,7 @@ export const useWorldBuilder = () => {
     const economicFocuses = ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'];
 
     for (let i = 0; i < cityCount; i++) {
-      const loc = shuffledCities[i] || { col: Math.floor(Math.random() * 50), row: Math.floor(Math.random() * 50) };
+      const loc = shuffledCities[i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
       cities.push({
         id: `city_${i}`,
         name: generateCityName(),
@@ -85,7 +85,7 @@ export const useWorldBuilder = () => {
 
     for (let i = 0; i < poiCount; i++) {
       const poiType = poiTypes[i % poiTypes.length];
-      const loc = shuffledPOIs[cityCount + i] || { col: Math.floor(Math.random() * 50), row: Math.floor(Math.random() * 50) };
+      const loc = shuffledPOIs[cityCount + i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
       let poiName: string;
       if (['dungeon', 'ruins', 'cave', 'tomb', 'crypt', 'lair'].includes(poiType)) {
         poiName = generateDungeonName();
@@ -127,6 +127,8 @@ export const useWorldBuilder = () => {
       weatherPatterns: [],
       hexGrid,
       terrainStats: stats,
+      mapWidth: mapW,
+      mapHeight: mapH,
     } as World;
   };
 

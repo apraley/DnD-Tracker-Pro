@@ -19,48 +19,52 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Grid dimensions — must be declared before getHexSize to avoid TDZ in production builds
-  const MAP_WIDTH = 51; // 51×51 hex grid, indices 0–50
-  const MAP_HEIGHT = 51;
+  // Grid dimensions from world object (variable size); fallback for safety
+  // Must be declared before getHexSize to avoid TDZ in production builds
+  const MAP_WIDTH  = world.mapWidth  ?? 51;
+  const MAP_HEIGHT = world.mapHeight ?? 51;
   const HEX_PADDING = 2;
 
-  // Dynamically calculate hex size based on viewport
+  // Dynamically calculate hex size based on viewport and grid dimensions
   const getHexSize = () => {
-    if (!canvasRef.current) return 12;
+    if (!canvasRef.current) return 8;
     const canvas = canvasRef.current;
-    // Fit entire 51×51 flat-top hex grid in the canvas at zoom=1.
-    // Total grid width  ≈ (MAP_WIDTH  * 1.5 + 0.5) * size
-    // Total grid height ≈ sqrt(3) * (MAP_HEIGHT + 0.5) * size  (odd-col offset adds 0.5 row)
     const sizeByWidth  = (canvas.width  * 0.92) / (MAP_WIDTH  * 1.5 + 0.5);
     const sizeByHeight = (canvas.height * 0.92) / (Math.sqrt(3) * (MAP_HEIGHT + 0.5));
-    return Math.max(8, Math.min(sizeByWidth, sizeByHeight, 25));
+    return Math.max(4, Math.min(sizeByWidth, sizeByHeight, 20));
   };
 
   let HEX_SIZE = getHexSize();
 
-  // Terrain color map for numeric terrain types (from worldGenIntegration)
+  // Full 15-type color map matching the new terrain generator
   const getTerrainTypeColor = (terrainType: number): string => {
-    const colors: { [key: number]: string } = {
-      0: '#0033CC', // deep ocean
-      1: '#0066FF', // shallow water
-      2: '#00CCFF', // coast
-      3: '#FFCC99', // beach
-      4: '#99DD44', // grassland
-      5: '#228B22', // forest
-      6: '#8B6914', // hills
-      7: '#999999', // mountains
-      8: '#555555', // high mountains
-      9: '#E8F4F8', // ice/snow
+    const colors: Record<number, string> = {
+      0:  '#06184f',  // deep ocean
+      1:  '#0e3d82',  // ocean
+      2:  '#2472b8',  // shallow water
+      3:  '#d4bc80',  // beach
+      4:  '#1a5c1e',  // tropical forest
+      5:  '#2e7d32',  // temperate forest
+      6:  '#4a6741',  // boreal / taiga
+      7:  '#7cbf3a',  // grassland
+      8:  '#b8a435',  // savanna
+      9:  '#c9a84c',  // desert
+      10: '#8b7040',  // hills
+      11: '#868674',  // mountains
+      12: '#555555',  // high mountains
+      13: '#8fa8a0',  // tundra
+      14: '#cce8f0',  // ice sheet
     };
-    return colors[terrainType] ?? '#90EE90';
+    return colors[terrainType] ?? '#444';
   };
 
-  // Terrain name for numeric types
   const getTerrainTypeName = (terrainType: number): string => {
-    const names: { [key: number]: string } = {
-      0: 'Deep Ocean', 1: 'Shallow Water', 2: 'Coast', 3: 'Beach',
-      4: 'Grassland', 5: 'Forest', 6: 'Hills', 7: 'Mountains',
-      8: 'High Mountains', 9: 'Ice/Snow',
+    const names: Record<number, string> = {
+      0: 'Deep Ocean', 1: 'Ocean', 2: 'Shallow Water', 3: 'Beach',
+      4: 'Tropical Forest', 5: 'Temperate Forest', 6: 'Boreal Forest',
+      7: 'Grassland', 8: 'Savanna', 9: 'Desert',
+      10: 'Hills', 11: 'Mountains', 12: 'High Mountains',
+      13: 'Tundra', 14: 'Ice Sheet',
     };
     return names[terrainType] ?? 'Unknown';
   };

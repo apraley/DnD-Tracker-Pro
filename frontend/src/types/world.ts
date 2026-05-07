@@ -180,6 +180,8 @@ export interface World {
   mapVisualization?: string;
   hexGrid?: Record<string, HexCell>;
   terrainStats?: TerrainStats;
+  mapWidth?: number;
+  mapHeight?: number;
 }
 
 export interface WeatherPattern {
