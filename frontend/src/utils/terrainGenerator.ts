@@ -188,15 +188,41 @@ export function generateTerrain(seed: number, climate = 'Temperate', terrain = '
   const H = Math.round(W * 0.56);   // ~16:9 landscape
 
   // 2. ── Plate generation ────────────────────────────────────────────────────
-  const numPlates = 8 + Math.floor(rng() * 5); // 8–12
-  const plates = Array.from({ length: numPlates }, (_, id) => ({
-    id,
-    cx: rng() * W,
-    cy: rng() * H,
-    isOceanic: rng() < cfg.oceanicBias,
-    driftX: (rng() - 0.5) * 2,
-    driftY: (rng() - 0.5) * 2,
-  }));
+  // Strategy: guarantee 3–4 continental seeds spread across horizontal strips,
+  // then fill remaining slots with mostly-oceanic filler plates.
+  // This ensures the map ALWAYS has at least 3 visually separate continents.
+  const numPlates     = 8 + Math.floor(rng() * 5);  // 8–12 total
+  const numContinents = 3 + Math.floor(rng() * 2);  // 3–4 guaranteed landmasses
+
+  type Plate = { id: number; cx: number; cy: number; isOceanic: boolean; driftX: number; driftY: number };
+  const plates: Plate[] = [];
+
+  // One continental seed per horizontal strip → always separated
+  for (let i = 0; i < numContinents; i++) {
+    const stripW = W / numContinents;
+    plates.push({
+      id: i,
+      cx: stripW * i + stripW * (0.15 + rng() * 0.70),  // 15–85% within strip
+      cy: H * (0.20 + rng() * 0.60),                    // 20–80% vertically (away from edge fade)
+      isOceanic: false,
+      driftX: (rng() - 0.5) * 2,
+      driftY: (rng() - 0.5) * 2,
+    });
+  }
+
+  // Filler plates — at least 65% oceanic so ocean fills the gaps between continents.
+  // cfg.oceanicBias still matters (higher bias = more filler ocean = smaller continents).
+  const fillerOceanBias = Math.max(0.65, cfg.oceanicBias);
+  for (let i = numContinents; i < numPlates; i++) {
+    plates.push({
+      id: i,
+      cx: rng() * W,
+      cy: rng() * H,
+      isOceanic: rng() < fillerOceanBias,
+      driftX: (rng() - 0.5) * 2,
+      driftY: (rng() - 0.5) * 2,
+    });
+  }
 
   // 3. ── Per-hex elevation from plate tectonics + fBm detail ─────────────────
   const elev    = new Float32Array(W * H);

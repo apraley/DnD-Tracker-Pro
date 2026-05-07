@@ -23,7 +23,7 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
   // Must be declared before getHexSize to avoid TDZ in production builds
   const MAP_WIDTH  = world.mapWidth  ?? 51;
   const MAP_HEIGHT = world.mapHeight ?? 51;
-  const HEX_PADDING = 2;
+  const HEX_PADDING = 0;
 
   // Dynamically calculate hex size based on viewport and grid dimensions
   const getHexSize = () => {
