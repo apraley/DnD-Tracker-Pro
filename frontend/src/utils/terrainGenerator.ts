@@ -118,21 +118,42 @@ export function generateTerrain(seed: number, percentWater = 40, percentIce = 5)
   const HEX = 51;
   const elev = new Float32Array(HEX * HEX);
 
+  // ── Continental shape generator ───────────────────────────────────────────
+  // Strategy: domain-warped mid-frequency noise creates 2-4 organic landmasses.
+  //  1. Two low-frequency value-noise layers warp the sampling coordinates —
+  //     this bends the continental boundaries into irregular coastline shapes.
+  //  2. A mid-frequency fBm sampled at the warped coords produces 2-4 high regions
+  //     (continents) separated by low regions (oceans).
+  //  3. Fine-detail fBm is blended in for local terrain variety (hills, bays, etc.).
+  //  4. A soft edge fade reduces elevation near the map border so the world doesn't
+  //     end abruptly (but is mild enough to allow coastal hexes anywhere).
+
   for (let col = 0; col < HEX; col++) {
     for (let row = 0; row < HEX; row++) {
       const nx = col / (HEX - 1); // [0..1]
       const ny = row / (HEX - 1);
 
-      // fBm height
-      const h = fbm(nx, ny, seed);
+      // Domain warp: offset the sample coords so continent outlines are jagged/organic
+      const warpX = valueNoise(nx * 2.1, ny * 2.1, seed + 500) - 0.5; // [-0.5, 0.5]
+      const warpY = valueNoise(nx * 2.1, ny * 2.1, seed + 501) - 0.5;
 
-      // Elliptical island mask — pushes edges toward ocean so we get coastlines
-      const dx = (nx - 0.5) * 2; // [-1..1]
-      const dy = (ny - 0.5) * 2;
-      const edgeDist = Math.max(0, 1 - (dx * dx + dy * dy));
-      const mask = Math.pow(edgeDist, 0.5); // gentle radial falloff
+      // Mid-frequency fBm sampled at warped coords → 2–4 distinct landmasses
+      // Frequency 2.5 means ~2.5 oscillations across the map width, giving ~2-4 peaks
+      const cx = nx * 2.5 + warpX * 0.6;
+      const cy = ny * 2.5 + warpY * 0.6;
+      const continental = fbm(cx, cy, seed + 1000);
 
-      elev[col * HEX + row] = h * 0.60 + mask * 0.40;
+      // Fine detail fBm for local terrain variation (coastline roughness, mountains)
+      const detail = fbm(nx, ny, seed);
+
+      // Soft border fade: gently push map edges toward ocean without forcing a single central island.
+      // Uses a squared smoothstep so edges are ocean-leaning but interior is unconstrained.
+      const bx = Math.min(nx, 1 - nx) * 4; // 0 at edge → 1 at quarter-in → stays 1
+      const by = Math.min(ny, 1 - ny) * 4;
+      const border = Math.min(1, bx) * Math.min(1, by); // 0..1, 0 at corners
+      const fade = Math.pow(border, 0.4);               // gentle: 0 at edges, ~1 inside
+
+      elev[col * HEX + row] = (continental * 0.55 + detail * 0.45) * (0.6 + 0.4 * fade);
     }
   }
 

@@ -12,6 +12,11 @@ import './App.css';
 
 type SidebarTab = 'cities' | 'dungeons' | 'wonders' | 'poi' | 'landmarks';
 
+// Module-level helper — must be outside App so useMemo callbacks never hit TDZ
+function isCity(e: City | PointOfInterest): e is City {
+  return 'governmentType' in e;
+}
+
 function App() {
   const { world: initialWorld, loading, error, generateWorld } = useWorldBuilder();
   const [world, setWorld] = useState<World | null>(initialWorld);
@@ -171,8 +176,6 @@ function App() {
       setMapImageLoading(false);
     }
   };
-
-  const isCity = (e: City | PointOfInterest): e is City => 'governmentType' in e;
 
   const getTabIcon = (tab: SidebarTab) => {
     const icons: Record<SidebarTab, string> = {
