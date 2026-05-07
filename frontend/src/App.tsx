@@ -3,9 +3,10 @@ import WorldGeneratorForm from './components/WorldGeneratorForm';
 import HexMap from './components/HexMap';
 import AdventureForgeExport from './components/AdventureForgeExport';
 import DetailPanel from './components/DetailPanel';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useWorldBuilder } from './hooks/useWorldBuilder';
 import { simulateExNovo } from './utils/exNovoSimulator';
-import { simulateExUmbra } from './utils/exUmbraSimulator';
+import { simulateExUmbra, buildMythweaverPayload } from './utils/exUmbraSimulator';
 import { World, City, PointOfInterest, WorldParams } from './types/world';
 import './App.css';
 
@@ -54,6 +55,24 @@ function App() {
   const otherPOIs = useMemo(() =>
     world?.pointsOfInterest.filter(p => !['dungeon','ruins','cave','tomb','crypt','lair','natural_wonder','geographical_landmark'].includes(p.type)) ?? [],
     [world]);
+
+  // Pre-compute simulator results for the selected entity (single import site = no Rollup TDZ)
+  const selectedExNovo = useMemo(() => {
+    if (!world || !selectedEntity || !isCity(selectedEntity)) return null;
+    return simulateExNovo(selectedEntity, world.worldSeed);
+  }, [selectedEntity, world]);
+
+  const selectedDungeon = useMemo(() => {
+    if (!world || !selectedEntity || isCity(selectedEntity)) return null;
+    const poi = selectedEntity as PointOfInterest;
+    if (!['dungeon', 'ruins', 'cave', 'tomb', 'crypt', 'lair'].includes(poi.type)) return null;
+    return simulateExUmbra(poi, world.worldSeed);
+  }, [selectedEntity, world]);
+
+  const selectedDungeonPayload = useMemo(() => {
+    if (!world || !selectedDungeon || !selectedEntity || isCity(selectedEntity)) return null;
+    return buildMythweaverPayload(selectedEntity as PointOfInterest, selectedDungeon, world.name);
+  }, [selectedDungeon, selectedEntity, world]);
 
   const tabCounts: Record<SidebarTab, number> = {
     cities: world?.cities.length ?? 0,
@@ -179,6 +198,7 @@ function App() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="app-shell">
       {/* ── Top Bar ── */}
       <header className="topbar">
@@ -376,6 +396,9 @@ function App() {
           world={world}
           mythweaverUrl={mythweaverUrl}
           onClose={() => setSelectedEntity(null)}
+          exNovo={selectedExNovo}
+          dungeon={selectedDungeon}
+          dungeonPayload={selectedDungeonPayload}
         />
       )}
 
@@ -454,6 +477,7 @@ function App() {
 
       {error && <div className="error-toast">❌ {error}</div>}
     </div>
+    </ErrorBoundary>
   );
 }
 

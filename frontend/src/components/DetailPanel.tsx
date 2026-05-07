@@ -4,8 +4,8 @@
  */
 import React from 'react';
 import { City, PointOfInterest, World } from '../types/world';
-import { simulateExNovo, ExNovoCity } from '../utils/exNovoSimulator';
-import { simulateExUmbra, buildMythweaverPayload, ExUmbraDungeon } from '../utils/exUmbraSimulator';
+import type { ExNovoCity } from '../utils/exNovoSimulator';
+import type { ExUmbraDungeon } from '../utils/exUmbraSimulator';
 import { generateDistrictEstablishments, Establishment, EstablishmentType } from '../utils/establishmentGenerator';
 
 interface DetailPanelProps {
@@ -13,6 +13,9 @@ interface DetailPanelProps {
   world: World;
   mythweaverUrl: string;
   onClose: () => void;
+  exNovo: ExNovoCity | null;
+  dungeon: ExUmbraDungeon | null;
+  dungeonPayload: object | null;
 }
 
 function isCity(e: City | PointOfInterest): e is City {
@@ -96,6 +99,11 @@ const TYPE_LABEL: Record<EstablishmentType, string> = {
   jeweler: 'Jeweler', tailor: 'Tailor', provisioner: 'Provisioner', temple: 'Temple',
   guildhall: 'Guildhall', guard_post: 'Guard Post', pawnbroker: 'Pawnbroker', scribe: 'Scribe',
   chandler: 'Chandler', stablemaster: 'Stablemaster',
+  bakery: 'Bakery', library: 'Library', cartographer: 'Cartographer', stables: 'Stables',
+  taxidermist: 'Taxidermist', mortician: 'Mortician', shipwright: 'Shipwright',
+  tattoo_parlour: 'Tattoo Parlour', potion_brewer: 'Potion Brewer', monster_parts: 'Monster Parts',
+  thieves_guild: 'Thieves\' Guild', gambling_den: 'Gambling Den', fencing_operation: 'Fencing Operation',
+  fortune_teller: 'Fortune Teller',
 };
 
 const TYPE_COLOR: Record<EstablishmentType, string> = {
@@ -104,11 +112,47 @@ const TYPE_COLOR: Record<EstablishmentType, string> = {
   jeweler: '#d4af37', tailor: '#16a085', provisioner: '#c0392b', temple: '#f39c12',
   guildhall: '#2980b9', guard_post: '#7f8c8d', pawnbroker: '#795548', scribe: '#5d6d7e',
   chandler: '#f39c12', stablemaster: '#795548',
+  bakery: '#e67e22', library: '#2471a3', cartographer: '#1a5276', stables: '#6e4c1e',
+  taxidermist: '#7d6608', mortician: '#5d6d7e', shipwright: '#1a6b8a', tattoo_parlour: '#6c3483',
+  potion_brewer: '#9b59b6', monster_parts: '#922b21', thieves_guild: '#1c2833',
+  gambling_den: '#d35400', fencing_operation: '#626567', fortune_teller: '#6c3483',
 };
 
-const EstablishmentCard: React.FC<{ est: Establishment }> = ({ est }) => {
+// ─── Grimoire session-note formatter ────────────────────────────────────────
+// Matches the text format used by saveCommerceToSession in Grimoire so notes
+// can be pasted directly into the Grimoire session editor.
+
+function buildGrimoireNote(est: Establishment, districtName: string, cityName: string): string {
+  const lines: string[] = [
+    `${est.name} (${TYPE_LABEL[est.type]}) — ${districtName}, ${cityName}`,
+    `Proprietor: ${est.proprietor.name} — ${est.proprietor.description}`,
+    `Description: ${est.description}`,
+  ];
+  if (est.prices) lines.push(`Pricing: ${est.prices}`);
+  if (est.features.length > 0) lines.push(`Features: ${est.features.join(' | ')}`);
+  if (est.stock && est.stock.length > 0) lines.push(`In Stock: ${est.stock.join('; ')}`);
+  if (est.menu && est.menu.length > 0) lines.push(`Menu/Notable: ${est.menu.join('; ')}`);
+  if (est.services && est.services.length > 0) lines.push(`Services: ${est.services.join('; ')}`);
+  if (est.rumor) lines.push(`Rumor heard here: "${est.rumor}"`);
+  return lines.join('\n');
+}
+
+const EstablishmentCard: React.FC<{
+  est: Establishment;
+  districtName: string;
+  cityName: string;
+}> = ({ est, districtName, cityName }) => {
   const [open, setOpen] = React.useState(false);
+  const [noteCopied, setNoteCopied] = React.useState(false);
   const color = TYPE_COLOR[est.type];
+
+  const handleCopyNote = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const note = buildGrimoireNote(est, districtName, cityName);
+    copyToClipboard(note);
+    setNoteCopied(true);
+    setTimeout(() => setNoteCopied(false), 2000);
+  };
 
   return (
     <div style={{
@@ -137,6 +181,17 @@ const EstablishmentCard: React.FC<{ est: Establishment }> = ({ est }) => {
             {TYPE_LABEL[est.type]}
           </div>
         </div>
+        <button
+          onClick={handleCopyNote}
+          title="Copy session note (Grimoire format)"
+          style={{
+            flexShrink: 0, fontSize: 10, padding: '2px 6px', cursor: 'pointer',
+            background: noteCopied ? '#d4af3722' : 'transparent',
+            border: `1px solid ${noteCopied ? '#d4af3766' : '#333'}`,
+            borderRadius: 3, color: noteCopied ? '#d4af37' : '#555',
+            lineHeight: 1.4, marginRight: 4,
+          }}
+        >{noteCopied ? '✓ Copied' : '📋 Note'}</button>
         <span style={{ fontSize: 10, color: '#444', flexShrink: 0 }}>{open ? '▲' : '▼'}</span>
       </div>
 
@@ -310,7 +365,12 @@ const DistrictCard: React.FC<{
       {open && establishments && (
         <div style={{ padding: '0 10px 10px', borderTop: '1px solid #2e2e42', paddingTop: 10 }}>
           {establishments.map(est => (
-            <EstablishmentCard key={est.id} est={est} />
+            <EstablishmentCard
+              key={est.id}
+              est={est}
+              districtName={district.name}
+              cityName={city.name}
+            />
           ))}
         </div>
       )}
@@ -483,9 +543,9 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
 
 // ─── Dungeon Detail ───────────────────────────────────────────────────────
 
-const DungeonDetail: React.FC<{ poi: PointOfInterest; dungeon: ExUmbraDungeon; world: World; mythweaverUrl: string }> = ({ poi, dungeon, world, mythweaverUrl }) => {
+const DungeonDetail: React.FC<{ poi: PointOfInterest; dungeon: ExUmbraDungeon; mythweaverUrl: string; dungeonPayload: object }> = ({ poi, dungeon, mythweaverUrl, dungeonPayload }) => {
   const [copied, setCopied] = React.useState(false);
-  const payload = buildMythweaverPayload(poi, dungeon, world.name);
+  const payload = dungeonPayload;
 
   const tierColors: Record<number, string> = { 1: '#27ae60', 2: '#d4af37', 3: '#e67e22', 4: '#c0392b' };
   const tc = tierColors[dungeon.crTier.tier];
@@ -604,13 +664,11 @@ const copyBtnStyle: React.CSSProperties = {
 
 // ─── Main Panel ───────────────────────────────────────────────────────────
 
-const DetailPanel: React.FC<DetailPanelProps> = ({ entity, world, mythweaverUrl, onClose }) => {
+const DetailPanel: React.FC<DetailPanelProps> = ({ entity, world, mythweaverUrl, onClose, exNovo, dungeon, dungeonPayload }) => {
   if (!entity) return null;
 
   const city = isCity(entity) ? entity : null;
   const poi = !isCity(entity) ? entity : null;
-  const exNovo = city ? simulateExNovo(city, world.worldSeed) : null;
-  const exUmbra = poi ? simulateExUmbra(poi, world.worldSeed) : null;
 
   return (
     <>
@@ -652,15 +710,15 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ entity, world, mythweaverUrl,
             </div>
             <h2 style={{ fontSize: 18, color: '#d4af37', fontWeight: 'bold' }}>{entity.name}</h2>
             {city && <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{city.governmentType} · Pop. {city.population?.toLocaleString()}</div>}
-            {poi && exUmbra && (
+            {poi && dungeon && (
               <div style={{ fontSize: 12, marginTop: 4 }}>
                 <span style={{
-                  background: `${['#27ae60','#d4af37','#e67e22','#c0392b'][exUmbra.crTier.tier - 1]}22`,
-                  border: `1px solid ${['#27ae60','#d4af37','#e67e22','#c0392b'][exUmbra.crTier.tier - 1]}66`,
-                  color: ['#27ae60','#d4af37','#e67e22','#c0392b'][exUmbra.crTier.tier - 1],
+                  background: `${['#27ae60','#d4af37','#e67e22','#c0392b'][dungeon.crTier.tier - 1]}22`,
+                  border: `1px solid ${['#27ae60','#d4af37','#e67e22','#c0392b'][dungeon.crTier.tier - 1]}66`,
+                  color: ['#27ae60','#d4af37','#e67e22','#c0392b'][dungeon.crTier.tier - 1],
                   borderRadius: 4, padding: '2px 8px', fontSize: 11,
                 }}>
-                  {exUmbra.crTier.label} · Levels {exUmbra.crTier.levelRange}
+                  {dungeon.crTier.label} · Levels {dungeon.crTier.levelRange}
                 </span>
               </div>
             )}
@@ -677,8 +735,8 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ entity, world, mythweaverUrl,
           {city && exNovo && (
             <CityDetail city={city} exNovo={exNovo} world={world} mythweaverUrl={mythweaverUrl} />
           )}
-          {poi && exUmbra && (
-            <DungeonDetail poi={poi} dungeon={exUmbra} world={world} mythweaverUrl={mythweaverUrl} />
+          {poi && dungeon && dungeonPayload && (
+            <DungeonDetail poi={poi} dungeon={dungeon} mythweaverUrl={mythweaverUrl} dungeonPayload={dungeonPayload} />
           )}
         </div>
       </div>

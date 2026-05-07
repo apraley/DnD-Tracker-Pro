@@ -19,20 +19,24 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Grid dimensions — must be declared before getHexSize to avoid TDZ in production builds
+  const MAP_WIDTH = 51; // 51×51 hex grid, indices 0–50
+  const MAP_HEIGHT = 51;
+  const HEX_PADDING = 2;
+
   // Dynamically calculate hex size based on viewport
   const getHexSize = () => {
-    if (!canvasRef.current) return 30;
+    if (!canvasRef.current) return 12;
     const canvas = canvasRef.current;
-    // Try to fit entire 51x51 map in view at 1x zoom
-    const mapPixelWidth = canvas.width * 0.9;
-    const estimatedHexSize = mapPixelWidth / (52 * 1.5); // Account for hex overlap
-    return Math.max(15, Math.min(estimatedHexSize, 40));
+    // Fit entire 51×51 flat-top hex grid in the canvas at zoom=1.
+    // Total grid width  ≈ (MAP_WIDTH  * 1.5 + 0.5) * size
+    // Total grid height ≈ sqrt(3) * (MAP_HEIGHT + 0.5) * size  (odd-col offset adds 0.5 row)
+    const sizeByWidth  = (canvas.width  * 0.92) / (MAP_WIDTH  * 1.5 + 0.5);
+    const sizeByHeight = (canvas.height * 0.92) / (Math.sqrt(3) * (MAP_HEIGHT + 0.5));
+    return Math.max(8, Math.min(sizeByWidth, sizeByHeight, 25));
   };
 
   let HEX_SIZE = getHexSize();
-  const HEX_PADDING = 2;
-  const MAP_WIDTH = 52; // Matches backend 51x51 grid (0-50)
-  const MAP_HEIGHT = 52;
 
   // Terrain color map for numeric terrain types (from worldGenIntegration)
   const getTerrainTypeColor = (terrainType: number): string => {
@@ -274,8 +278,9 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
 
     // Draw hex grid - only visible hexes to save performance
     const visibleRange = Math.ceil(Math.max(canvas.width, canvas.height) / (2 * HEX_SIZE * zoom)) + 5;
-    const centerCol = Math.round(-pan.x / zoom / (HEX_SIZE * 3 / 2));
-    const centerRow = Math.round(-pan.y / zoom / (HEX_SIZE * Math.sqrt(3)));
+    // Account for the centering offset: hex (MAP_WIDTH/2, MAP_HEIGHT/2) sits at world-space (0,0)
+    const centerCol = Math.round(-pan.x / zoom / (HEX_SIZE * 3 / 2)) + MAP_WIDTH / 2;
+    const centerRow = Math.round(-pan.y / zoom / (HEX_SIZE * Math.sqrt(3))) + MAP_HEIGHT / 2;
 
     for (let col = Math.max(0, centerCol - visibleRange); col < Math.min(MAP_WIDTH, centerCol + visibleRange); col++) {
       for (let row = Math.max(0, centerRow - visibleRange); row < Math.min(MAP_HEIGHT, centerRow + visibleRange); row++) {
