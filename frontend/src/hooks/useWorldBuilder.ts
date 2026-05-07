@@ -38,8 +38,12 @@ export const useWorldBuilder = () => {
     const seed = Math.floor(Math.random() * 1000000);
     const worldSeed = seed.toString();
 
-    // Generate fractal terrain client-side
-    const { hexGrid, stats, width: mapW, height: mapH } = generateTerrain(seed, 40, 8);
+    // Generate fractal terrain client-side — climate + terrain drive water%, ice%, biome distribution
+    const { hexGrid, stats, width: mapW, height: mapH } = generateTerrain(
+      seed,
+      params.climate ?? 'Temperate',
+      params.terrain ?? 'Mixed',
+    );
     const viableForCities = getViableLocations(hexGrid);
     const viableForPOIs = getLandLocations(hexGrid);
 

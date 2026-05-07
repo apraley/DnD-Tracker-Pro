@@ -117,9 +117,69 @@ function makeRng(seed: number) {
   };
 }
 
+// ─── Climate / terrain config system ─────────────────────────────────────────
+
+export interface TerrainConfig {
+  /** Percent of hexes that become water (clamped 10–70) */
+  percentWater: number;
+  /** >0 = more polar/ice (lat thresholds shift toward equator), <0 = less */
+  polarBias: number;
+  /** Added to moisture value; positive = wetter overall */
+  moistureBias: number;
+  /** Lat threshold for the tropical/subtropical boundary (default 0.18) */
+  tropicalWidth: number;
+  /** Fraction of tectonic plates that are oceanic (default 0.55) */
+  oceanicBias: number;
+  /** Added to base plate elevation; positive = more mountains overall */
+  elevationBias: number;
+}
+
+/** Base config per Climate dropdown value */
+const CLIMATE_CONFIGS: Record<string, TerrainConfig> = {
+  'Temperate':            { percentWater: 40, polarBias:  0.00, moistureBias:  0.00, tropicalWidth: 0.18, oceanicBias: 0.55, elevationBias:  0.00 },
+  'Tropical':             { percentWater: 55, polarBias: -0.22, moistureBias:  0.18, tropicalWidth: 0.32, oceanicBias: 0.65, elevationBias: -0.03 },
+  'Arid':                 { percentWater: 22, polarBias: -0.10, moistureBias: -0.28, tropicalWidth: 0.12, oceanicBias: 0.35, elevationBias:  0.00 },
+  'Cold':                 { percentWater: 38, polarBias:  0.20, moistureBias: -0.12, tropicalWidth: 0.12, oceanicBias: 0.50, elevationBias:  0.03 },
+  'Eternal Spring':       { percentWater: 35, polarBias: -0.32, moistureBias:  0.12, tropicalWidth: 0.24, oceanicBias: 0.50, elevationBias:  0.00 },
+  'Volatile':             { percentWater: 45, polarBias:  0.05, moistureBias:  0.00, tropicalWidth: 0.18, oceanicBias: 0.55, elevationBias:  0.12 },
+  'Cursed':               { percentWater: 50, polarBias:  0.05, moistureBias: -0.05, tropicalWidth: 0.15, oceanicBias: 0.60, elevationBias:  0.05 },
+  'Magically Stabilized': { percentWater: 38, polarBias: -0.05, moistureBias:  0.05, tropicalWidth: 0.20, oceanicBias: 0.50, elevationBias:  0.00 },
+};
+
+/** Per-terrain modifier layered on top of the climate base */
+const TERRAIN_MODIFIERS: Record<string, Partial<TerrainConfig>> = {
+  'Forest':    { percentWater:  0, polarBias:  0.00, moistureBias:  0.18, elevationBias: -0.03 },
+  'Mountain':  { percentWater: -5, polarBias:  0.00, moistureBias: -0.05, elevationBias:  0.15 },
+  'Plains':    { percentWater:  0, polarBias:  0.00, moistureBias:  0.00, elevationBias: -0.08 },
+  'Desert':    { percentWater: -8, polarBias: -0.05, moistureBias: -0.22, elevationBias:  0.00 },
+  'Swamp':     { percentWater:  5, polarBias:  0.00, moistureBias:  0.22, elevationBias: -0.05 },
+  'Tundra':    { percentWater:  0, polarBias:  0.20, moistureBias: -0.18, elevationBias:  0.00 },
+  'Coastline': { percentWater: 10, polarBias:  0.00, moistureBias:  0.10, elevationBias: -0.05, oceanicBias: 0.10 },
+  'Hills':     { percentWater:  0, polarBias:  0.00, moistureBias: -0.05, elevationBias:  0.08 },
+  'Valley':    { percentWater: -5, polarBias:  0.00, moistureBias:  0.05, elevationBias: -0.05 },
+  'Badlands':  { percentWater: -8, polarBias:  0.00, moistureBias: -0.18, elevationBias:  0.05 },
+  'Grassland': { percentWater:  0, polarBias:  0.00, moistureBias:  0.05, elevationBias: -0.05 },
+  'Savanna':   { percentWater:  0, polarBias: -0.05, moistureBias: -0.05, elevationBias:  0.00 },
+  'Mixed':     { percentWater:  0, polarBias:  0.00, moistureBias:  0.00, elevationBias:  0.00 },
+};
+
+export function buildTerrainConfig(climate: string, terrain: string): TerrainConfig {
+  const base = CLIMATE_CONFIGS[climate] ?? CLIMATE_CONFIGS['Temperate'];
+  const mod  = TERRAIN_MODIFIERS[terrain] ?? TERRAIN_MODIFIERS['Mixed'];
+  return {
+    percentWater:  Math.max(10, Math.min(70, base.percentWater  + (mod.percentWater  ?? 0))),
+    polarBias:     base.polarBias     + (mod.polarBias     ?? 0),
+    moistureBias:  base.moistureBias  + (mod.moistureBias  ?? 0),
+    tropicalWidth: base.tropicalWidth + (mod.tropicalWidth ?? 0),
+    oceanicBias:   Math.max(0.20, Math.min(0.85, base.oceanicBias + (mod.oceanicBias ?? 0))),
+    elevationBias: base.elevationBias + (mod.elevationBias ?? 0),
+  };
+}
+
 // ─── Main generator ───────────────────────────────────────────────────────────
 
-export function generateTerrain(seed: number, percentWater = 40, _percentIce = 8): GeneratedTerrain {
+export function generateTerrain(seed: number, climate = 'Temperate', terrain = 'Mixed'): GeneratedTerrain {
+  const cfg = buildTerrainConfig(climate, terrain);
   const rng = makeRng(seed);
 
   // 1. ── Grid size (landscape, randomly chosen) ──────────────────────────────
@@ -133,7 +193,7 @@ export function generateTerrain(seed: number, percentWater = 40, _percentIce = 8
     id,
     cx: rng() * W,
     cy: rng() * H,
-    isOceanic: rng() < 0.55,          // 55 % oceanic → more ocean by default
+    isOceanic: rng() < cfg.oceanicBias,
     driftX: (rng() - 0.5) * 2,
     driftY: (rng() - 0.5) * 2,
   }));
@@ -156,9 +216,9 @@ export function generateTerrain(seed: number, percentWater = 40, _percentIce = 8
       }
       plateOf[idx] = p1;
 
-      // Base elevation from plate type
+      // Base elevation from plate type (+ global elevation bias from config)
       const plate = plates[p1];
-      let e = plate.isOceanic ? 0.27 : 0.61;
+      let e = (plate.isOceanic ? 0.27 : 0.61) + cfg.elevationBias;
 
       // Boundary proximity (in actual hex units)
       const borderDist = (Math.sqrt(d2) - Math.sqrt(d1));
@@ -208,7 +268,7 @@ export function generateTerrain(seed: number, percentWater = 40, _percentIce = 8
   const n = sorted.length;
   const p = (f: number) => sorted[Math.min(n - 1, Math.floor(f * n))];
 
-  const wF = percentWater / 100;
+  const wF = cfg.percentWater / 100;
   const deepT    = p(wF * 0.40);
   const oceanT   = p(wF * 0.75);
   const shallowT = p(wF);
@@ -267,44 +327,58 @@ export function generateTerrain(seed: number, percentWater = 40, _percentIce = 8
       // moisture: 1 = coastal, 0 = deep interior; scaled by latitude (tropics wetter)
       const rawMoist = 1 - Math.min(1, coastDist[idx] / (maxDist * 0.65));
       const latMoist = 1 - Math.max(0, (lat - 0.20) / 0.50); // tropics/temp wetter than poles
-      const moisture = rawMoist * 0.65 + latMoist * 0.35;
+      const moisture = Math.max(0, Math.min(1,
+        rawMoist * 0.65 + latMoist * 0.35 + cfg.moistureBias
+      ));
+
+      // ── Lat zone thresholds (all driven by polarBias + tropicalWidth) ────────
+      // polarBias > 0 → thresholds shift lower → polar zones expand toward equator
+      // polarBias < 0 → thresholds shift higher → polar zones shrink
+      const pb = cfg.polarBias;
+      const iceLatT    = Math.max(0.30, Math.min(0.92, 0.68 - pb * 0.85));
+      const mtnLatT    = Math.max(0.35, Math.min(0.95, 0.72 - pb * 0.85));
+      const hillLatT   = Math.max(0.40, Math.min(0.98, 0.78 - pb * 0.85));
+      const arcticLatT = Math.max(0.45, Math.min(0.99, 0.83 - pb * 0.85));
+      const borealLatT = iceLatT;  // boreal/tundra split matches ice threshold
+      // Tropical band boundary (cfg.tropicalWidth default 0.18)
+      const tropT  = cfg.tropicalWidth;
+      const subT   = tropT + 0.20;  // subtropical starts 0.20 lat above tropical
+      const tempT  = subT  + 0.30;  // temperate starts 0.30 lat above subtropical
 
       let t: number;
 
-      if (e <= deepT)    { t = 0;  }  // deep ocean
-      else if (e <= oceanT)  { t = 1;  }  // ocean
-      else if (e <= shallowT){ t = 2;  }  // shallow water
-      else if (e <= beachT)  { t = 3;  }  // beach
+      if (e <= deepT)         { t = 0; }  // deep ocean
+      else if (e <= oceanT)   { t = 1; }  // ocean
+      else if (e <= shallowT) { t = 2; }  // shallow water
+      else if (e <= beachT)   { t = 3; }  // beach
       else if (e >= mtnT) {
-        // High elevation: glaciated peaks only in polar latitudes
-        t = lat > 0.68 ? 14 : 12;
+        // High elevation: glaciated peaks only near poles
+        t = lat > iceLatT ? 14 : 12;
       } else if (e >= hillT) {
-        // Mountain zone
-        t = lat > 0.72 ? 13 : 11;
+        t = lat > mtnLatT ? 13 : 11;
       } else if (e >= flatTopT) {
-        // Hills zone
-        t = lat > 0.78 ? 13 : 10;
+        t = lat > hillLatT ? 13 : 10;
       } else {
-        // Flat land — latitude + moisture → biome
-        if (lat > 0.83) {
+        // Flat land — latitude zone + moisture → biome
+        if (lat > arcticLatT) {
           t = 13;  // arctic tundra
-        } else if (lat > 0.68) {
+        } else if (lat > borealLatT) {
           t = moisture > 0.35 ? 6 : 13;  // boreal forest or tundra
-        } else if (lat > 0.38) {
+        } else if (lat > tempT) {
           // Temperate band
-          if (moisture > 0.55) t = 5;       // temperate forest
-          else if (moisture > 0.25) t = 7;  // grassland
-          else t = 9;                        // cold desert / steppe
-        } else if (lat > 0.18) {
-          // Subtropical band (dry belt ~25-35°)
-          if (moisture > 0.52) t = 5;       // mediterranean forest
-          else if (moisture > 0.28) t = 8;  // savanna
-          else t = 9;                        // desert
+          if (moisture > 0.55) t = 5;
+          else if (moisture > 0.25) t = 7;
+          else t = 9;
+        } else if (lat > subT) {
+          // Subtropical (dry belt)
+          if (moisture > 0.52) t = 5;
+          else if (moisture > 0.28) t = 8;
+          else t = 9;
         } else {
           // Tropical band
-          if (moisture > 0.48) t = 4;       // tropical forest
-          else if (moisture > 0.22) t = 8;  // tropical savanna
-          else t = 9;                        // tropical desert
+          if (moisture > 0.48) t = 4;
+          else if (moisture > 0.22) t = 8;
+          else t = 9;
         }
       }
 
