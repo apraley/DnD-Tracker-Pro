@@ -885,11 +885,20 @@ const LANDMARK_AREAS = [
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
 
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (Math.imul(h, 0x01000193)) >>> 0;
+  }
+  return h;
+}
+
 function makeRng(seed: number) {
-  let s = seed;
+  let s = seed >>> 0;
   return () => {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    return Math.abs(s) / 0x100000000;
+    s = ((Math.imul(1664525, s) + 1013904223) >>> 0);
+    return s / 0x100000000;
   };
 }
 
@@ -922,8 +931,7 @@ export interface ExUmbraDungeon {
 }
 
 export function simulateExUmbra(poi: PointOfInterest, worldSeed: string): ExUmbraDungeon {
-  const seedNum = poi.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) +
-    parseInt(worldSeed.replace(/\D/g, '').slice(0, 6) || '42', 10);
+  const seedNum = fnv1a(poi.id + '|' + worldSeed);
   const rng = makeRng(seedNum);
 
   // Determine CR tier from dangerLevel (1-20)

@@ -83,15 +83,16 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
     return terrainColors[terrain] || '#90EE90';
   };
 
-  // Convert offset coordinates to pixel coordinates (pointy-top hex)
-  // Using offset coordinates (even-r) for pointy-top hexagons
+  // Convert offset coordinates to pixel coordinates (flat-top hex, even-q offset)
   const hexToPixel = (col: number, row: number) => {
     const size = HEX_SIZE;
-    // For pointy-top, even-r offset coordinates:
-    const pixelX = size * (3 / 2 * col);
-    const pixelY = size * (Math.sqrt(3) / 2 * col + Math.sqrt(3) * row);
+    // Flat-top hexes, even-q offset:
+    // - Each column steps right by 3/2 * size
+    // - Odd columns are offset DOWN by half a hex height (√3/2 * size)
+    const pixelX = size * (3 / 2) * col;
+    const pixelY = size * Math.sqrt(3) * (row + (col % 2) * 0.5);
 
-    // Center the map by offsetting from the center of the grid
+    // Center the map
     const centerOffsetX = -(MAP_WIDTH / 2) * size * (3 / 2);
     const centerOffsetY = -(MAP_HEIGHT / 2) * size * Math.sqrt(3);
 

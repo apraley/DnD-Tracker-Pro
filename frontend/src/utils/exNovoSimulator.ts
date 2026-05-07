@@ -751,11 +751,22 @@ const LAST_NAMES = [
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
 
+// FNV-1a hash: small input differences cause large, well-distributed seed differences.
+// Prevents consecutive city IDs (city_0, city_1 …) from producing nearly identical sequences.
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (Math.imul(h, 0x01000193)) >>> 0;
+  }
+  return h;
+}
+
 function makeRng(seed: number) {
-  let s = seed;
+  let s = seed >>> 0;
   return () => {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    return Math.abs(s) / 0x100000000;
+    s = ((Math.imul(1664525, s) + 1013904223) >>> 0);
+    return s / 0x100000000;
   };
 }
 
@@ -792,9 +803,9 @@ export interface ExNovoCity {
 }
 
 export function simulateExNovo(city: City, worldSeed: string): ExNovoCity {
-  // Stable seed per city so re-renders don't change things
-  const seedNum = city.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) +
-    parseInt(worldSeed.replace(/\D/g, '').slice(0, 6) || '42', 10);
+  // FNV-1a hash of "cityId|worldSeed" — ensures city_0 and city_1 get completely
+  // different seeds even though their IDs differ by only one character.
+  const seedNum = fnv1a(city.id + '|' + worldSeed);
   const rng = makeRng(seedNum);
 
   const frWhat = pick(FR_WHAT, rng);

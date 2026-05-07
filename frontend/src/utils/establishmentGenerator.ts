@@ -30,10 +30,19 @@ export interface Establishment {
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
 
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (Math.imul(h, 0x01000193)) >>> 0;
+  }
+  return h;
+}
+
 function makeRng(seed: number) {
   let s = seed >>> 0;
   return () => {
-    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    s = ((Math.imul(1664525, s) + 1013904223) >>> 0);
     return s / 0x100000000;
   };
 }
@@ -953,10 +962,9 @@ export function generateDistrictEstablishments(
   worldSeed: string,
   magicLevel: number = 5
 ): Establishment[] {
-  // Stable seed: district + city
-  const districtHash = district.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const cityHash = cityId.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const seedNum = districtHash * 31 + cityHash + parseInt(worldSeed.replace(/\D/g, '').slice(0, 6) || '42', 10);
+  // FNV-1a hash of combined key — districts with similar names in similar cities
+  // get completely different seeds.
+  const seedNum = fnv1a(`${cityId}|${district.name}|${worldSeed}`);
   const rng = makeRng(seedNum);
 
   const types = inferTypes(district.name, magicLevel);
