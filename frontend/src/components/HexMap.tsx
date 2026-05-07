@@ -128,9 +128,7 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.stroke(); // strokeStyle/lineWidth set once per frame in renderMap
   };
 
   // Draw a city icon
@@ -279,6 +277,11 @@ const HexMap: React.FC<HexMapProps> = ({ world, onHexHover, onHexClick, highligh
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(zoom, zoom);
     ctx.translate(pan.x / zoom, pan.y / zoom);
+
+    // Border stays visually 1px regardless of zoom.
+    // lineWidth is in canvas-space, so dividing by zoom cancels the scale.
+    ctx.strokeStyle = '#1a1a2a';
+    ctx.lineWidth = 1 / zoom;
 
     // Draw hex grid - only visible hexes to save performance
     const visibleRange = Math.ceil(Math.max(canvas.width, canvas.height) / (2 * HEX_SIZE * zoom)) + 5;
