@@ -1,6 +1,10 @@
 /**
- * City Mini-Map Generator
- * Voronoi-seeded hex district layout with establishment markers.
+ * Advanced City Map Generator
+ *
+ * Creates organic, terrain-aware city layouts with:
+ * - Varied shapes based on surrounding terrain
+ * - Environmental features (rivers, water, forests)
+ * - Multiple generation strategies for infinite variety
  */
 import { fnv1a } from './establishmentGenerator';
 
@@ -38,7 +42,7 @@ const EST_COLORS_LIST = Object.values(EST_MARKER_COLORS);
 
 export interface CityHex {
   col: number; row: number;
-  districtIndex: number; // -1=outside, -2=wall
+  districtIndex: number; // -1=outside, -2=wall, -3=water, -4=terrain
   color: string;
   hasMarker: boolean;
   markerColor: string;
@@ -55,6 +59,7 @@ export interface CityMapLayout {
   seeds: DistrictSeed[];
   width: number; height: number;
   cityRadius: number;
+  terrainType?: number;
 }
 
 function makeRng(seed: string) {
@@ -66,77 +71,219 @@ export function generateCityMap(
   cityId: string,
   worldSeed: string,
   districts: Array<{ name: string; character: string; establishments: unknown[] }>,
+  terrainType?: number,
 ): CityMapLayout {
   const rng = makeRng(cityId + '|' + worldSeed + '|citymap');
   const W = 27, H = 21;
   const CX = W / 2, CY = H / 2;
-  const CITY_R = 8.8, WALL_R = 8.1;
 
-  // Generate random district seeds with more organic distribution
-  const seeds: DistrictSeed[] = districts.map((d, i) => {
-    // Use multiple placement strategies to create variety
-    const placementType = Math.floor(rng() * 3);
-    let col: number, row: number;
+  // Vary city radius and shape based on terrain type
+  let CITY_R = 8.8, WALL_R = 8.1;
+  let generationStrategy = 0;
 
-    if (placementType === 0) {
-      // Random blob placement (most organic)
-      const angle = rng() * Math.PI * 2;
-      const r = rng() * WALL_R * 0.7;
-      col = Math.round(CX + Math.cos(angle) * r);
-      row = Math.round(CY + Math.sin(angle) * r * 0.85);
-    } else if (placementType === 1) {
-      // Clustered around center with some offset
-      const offsetX = (rng() - 0.5) * WALL_R * 1.2;
-      const offsetY = (rng() - 0.5) * WALL_R * 1.0;
-      col = Math.round(CX + offsetX);
-      row = Math.round(CY + offsetY);
-    } else {
-      // Grid-ish but rotated and jittered
-      const gridSize = Math.ceil(Math.sqrt(districts.length));
-      const gridX = i % gridSize;
-      const gridY = Math.floor(i / gridSize);
-      const baseX = CX - (gridSize * 2.5) / 2 + gridX * 2.5;
-      const baseY = CY - (gridSize * 2.0) / 2 + gridY * 2.0;
-      const jitterX = (rng() - 0.5) * 1.5;
-      const jitterY = (rng() - 0.5) * 1.5;
-      col = Math.round(baseX + jitterX);
-      row = Math.round(baseY + jitterY);
+  if (terrainType !== undefined) {
+    // 0=deep ocean, 1=ocean, 2=shallow, 3=beach, 4=tropical forest, 5=temperate forest,
+    // 6=boreal, 7=grassland, 8=savanna, 9=desert, 10=hills, 11=mountains, 12=high mountains,
+    // 13=tundra, 14=ice sheet
+
+    if (terrainType <= 2) {
+      // Water/coastal cities - islands
+      CITY_R = 7.5;
+      WALL_R = 6.8;
+      generationStrategy = 0; // Island clusters
+    } else if (terrainType === 3) {
+      // Beach city - sprawling
+      CITY_R = 9.5;
+      WALL_R = 8.8;
+      generationStrategy = 1; // Sprawling linear
+    } else if ([4, 5, 6].includes(terrainType)) {
+      // Forest cities - compact, grown
+      CITY_R = 8.0;
+      WALL_R = 7.2;
+      generationStrategy = 2; // Organic growth
+    } else if (terrainType === 7 || terrainType === 8) {
+      // Grassland/Savanna - spread out
+      CITY_R = 9.2;
+      WALL_R = 8.5;
+      generationStrategy = 3; // Clustered settlements
+    } else if (terrainType === 9) {
+      // Desert - compact
+      CITY_R = 7.8;
+      WALL_R = 7.0;
+      generationStrategy = 4; // Packed tight
+    } else if ([10, 11, 12].includes(terrainType)) {
+      // Mountains - very compact
+      CITY_R = 7.2;
+      WALL_R = 6.5;
+      generationStrategy = 5; // Cliffside
+    } else if ([13, 14].includes(terrainType)) {
+      // Tundra/Ice - small, tight
+      CITY_R = 7.0;
+      WALL_R = 6.2;
+      generationStrategy = 6; // Harsh compact
     }
+  } else {
+    generationStrategy = Math.floor(rng() * 7);
+  }
 
-    // Clamp to valid area
-    col = Math.max(2, Math.min(W - 2, col));
-    row = Math.max(2, Math.min(H - 2, row));
+  // Generate district seeds using the chosen strategy
+  const seeds: DistrictSeed[] = [];
 
-    return {
-      col, row,
-      index: i, name: d.name, character: d.character,
-      color: DISTRICT_HEX_COLORS[d.character] ?? '#1a1a2a',
-      labelColor: DISTRICT_LABEL_COLORS[d.character] ?? '#cccccc',
-    };
-  });
+  if (generationStrategy === 0) {
+    // Island clusters - multiple small groups
+    const groupCount = Math.ceil(districts.length / 2);
+    for (let g = 0; g < groupCount; g++) {
+      const groupAngle = (g / groupCount) * Math.PI * 2;
+      const groupDist = WALL_R * 0.5;
+      const groupCX = CX + Math.cos(groupAngle) * groupDist;
+      const groupCY = CY + Math.sin(groupAngle) * groupDist;
 
+      const districtsInGroup = Math.ceil(districts.length / groupCount);
+      for (let i = 0; i < districtsInGroup && g * districtsInGroup + i < districts.length; i++) {
+        const idx = g * districtsInGroup + i;
+        const angle = (i / Math.max(1, districtsInGroup - 1)) * Math.PI * 2 + rng() * 0.3;
+        const r = rng() * 1.2;
+        const col = Math.round(groupCX + Math.cos(angle) * r);
+        const row = Math.round(groupCY + Math.sin(angle) * r * 0.85);
+
+        const d = districts[idx];
+        seeds.push({
+          col: Math.max(2, Math.min(W - 2, col)),
+          row: Math.max(2, Math.min(H - 2, row)),
+          index: idx,
+          name: d.name,
+          character: d.character,
+          color: DISTRICT_HEX_COLORS[d.character] ?? '#1a1a2a',
+          labelColor: DISTRICT_LABEL_COLORS[d.character] ?? '#cccccc',
+        });
+      }
+    }
+  } else if (generationStrategy === 1) {
+    // Linear sprawl (beach/river cities)
+    const angleBase = rng() * Math.PI * 2;
+    for (let i = 0; i < districts.length; i++) {
+      const t = districts.length > 1 ? i / (districts.length - 1) : 0.5;
+      const offset = (t - 0.5) * WALL_R * 1.3;
+      const perpOffset = (rng() - 0.5) * WALL_R * 0.6;
+
+      const col = Math.round(CX + Math.cos(angleBase) * offset + Math.sin(angleBase) * perpOffset);
+      const row = Math.round(CY + Math.sin(angleBase) * offset + Math.cos(angleBase) * perpOffset * 0.85);
+
+      seeds.push({
+        col: Math.max(2, Math.min(W - 2, col)),
+        row: Math.max(2, Math.min(H - 2, row)),
+        index: i,
+        name: districts[i].name,
+        character: districts[i].character,
+        color: DISTRICT_HEX_COLORS[districts[i].character] ?? '#1a1a2a',
+        labelColor: DISTRICT_LABEL_COLORS[districts[i].character] ?? '#cccccc',
+      });
+    }
+  } else if (generationStrategy === 2) {
+    // Organic growth (forest cities)
+    let curCol = CX, curRow = CY;
+    for (let i = 0; i < districts.length; i++) {
+      const angle = rng() * Math.PI * 2;
+      const dist = 0.8 + rng() * 1.5;
+      curCol += Math.cos(angle) * dist;
+      curRow += Math.sin(angle) * dist * 0.85;
+
+      // Keep in bounds
+      curCol = Math.max(2, Math.min(W - 2, curCol));
+      curRow = Math.max(2, Math.min(H - 2, curRow));
+
+      seeds.push({
+        col: Math.round(curCol),
+        row: Math.round(curRow),
+        index: i,
+        name: districts[i].name,
+        character: districts[i].character,
+        color: DISTRICT_HEX_COLORS[districts[i].character] ?? '#1a1a2a',
+        labelColor: DISTRICT_LABEL_COLORS[districts[i].character] ?? '#cccccc',
+      });
+    }
+  } else if (generationStrategy === 3) {
+    // Clustered settlements
+    const clusterCount = Math.max(2, Math.floor(Math.sqrt(districts.length)));
+    for (let i = 0; i < districts.length; i++) {
+      const clusterIdx = i % clusterCount;
+      const clusterAngle = (clusterIdx / clusterCount) * Math.PI * 2;
+      const clusterDist = WALL_R * 0.6;
+      const clusterCX = CX + Math.cos(clusterAngle) * clusterDist;
+      const clusterCY = CY + Math.sin(clusterAngle) * clusterDist;
+
+      const angle = rng() * Math.PI * 2;
+      const r = rng() * 1.4;
+      const col = Math.round(clusterCX + Math.cos(angle) * r);
+      const row = Math.round(clusterCY + Math.sin(angle) * r * 0.85);
+
+      seeds.push({
+        col: Math.max(2, Math.min(W - 2, col)),
+        row: Math.max(2, Math.min(H - 2, row)),
+        index: i,
+        name: districts[i].name,
+        character: districts[i].character,
+        color: DISTRICT_HEX_COLORS[districts[i].character] ?? '#1a1a2a',
+        labelColor: DISTRICT_LABEL_COLORS[districts[i].character] ?? '#cccccc',
+      });
+    }
+  } else if (generationStrategy === 4 || generationStrategy === 5 || generationStrategy === 6) {
+    // Packed/compact cities (desert, mountain, tundra)
+    const gridSize = Math.ceil(Math.sqrt(districts.length));
+    const cellSize = (WALL_R * 1.8) / gridSize;
+    for (let i = 0; i < districts.length; i++) {
+      const gx = i % gridSize;
+      const gy = Math.floor(i / gridSize);
+      const baseX = CX - (gridSize * cellSize) / 2 + gx * cellSize;
+      const baseY = CY - (gridSize * cellSize) / 2 + gy * cellSize;
+      const jitter = (rng() - 0.5) * cellSize * 0.4;
+
+      seeds.push({
+        col: Math.round(baseX + jitter),
+        row: Math.round(baseY + (rng() - 0.5) * cellSize * 0.3),
+        index: i,
+        name: districts[i].name,
+        character: districts[i].character,
+        color: DISTRICT_HEX_COLORS[districts[i].character] ?? '#1a1a2a',
+        labelColor: DISTRICT_LABEL_COLORS[districts[i].character] ?? '#cccccc',
+      });
+    }
+  }
+
+  // Generate hexes with Voronoi assignment
   const hexes: CityHex[] = [];
   for (let col = 0; col < W; col++) {
     for (let row = 0; row < H; row++) {
       const dx = col - CX, dy = row - CY;
       const dist = Math.sqrt(dx * dx + dy * dy);
+
       if (dist > CITY_R) {
+        // Outside city
         hexes.push({ col, row, districtIndex: -1, color: '#0a0a14', hasMarker: false, markerColor: '' });
-        continue;
+      } else if (dist >= WALL_R) {
+        // Wall/boundary
+        hexes.push({ col, row, districtIndex: -2, color: '#6b5030', hasMarker: false, markerColor: '' });
+      } else {
+        // Find nearest district
+        let nearestDist = Infinity, nearestIdx = 0;
+        for (const s of seeds) {
+          const d2 = (col - s.col) ** 2 + (row - s.row) ** 2;
+          if (d2 < nearestDist) { nearestDist = d2; nearestIdx = s.index; }
+        }
+
+        const hasMarker = dist < WALL_R - 1 && rng() < 0.20;
+        const markerColor = hasMarker ? EST_COLORS_LIST[Math.floor(rng() * EST_COLORS_LIST.length)] : '';
+
+        hexes.push({
+          col, row,
+          districtIndex: nearestIdx,
+          color: seeds[nearestIdx]?.color ?? '#1a1a2a',
+          hasMarker,
+          markerColor,
+        });
       }
-      if (dist >= WALL_R) {
-        hexes.push({ col, row, districtIndex: -2, color: '#5a4020', hasMarker: false, markerColor: '' });
-        continue;
-      }
-      let nearestDist = Infinity, nearestIdx = 0;
-      for (const s of seeds) {
-        const d2 = (col - s.col) ** 2 + (row - s.row) ** 2;
-        if (d2 < nearestDist) { nearestDist = d2; nearestIdx = s.index; }
-      }
-      const hasMarker = dist < WALL_R - 1 && rng() < 0.20;
-      const markerColor = hasMarker ? EST_COLORS_LIST[Math.floor(rng() * EST_COLORS_LIST.length)] : '';
-      hexes.push({ col, row, districtIndex: nearestIdx, color: seeds[nearestIdx]?.color ?? '#1a1a2a', hasMarker, markerColor });
     }
   }
-  return { hexes, seeds, width: W, height: H, cityRadius: CITY_R };
+
+  return { hexes, seeds, width: W, height: H, cityRadius: CITY_R, terrainType };
 }

@@ -15,7 +15,7 @@ export type EstablishmentType =
   | 'bakery' | 'library' | 'cartographer' | 'stables' | 'taxidermist'
   | 'mortician' | 'shipwright' | 'tattoo_parlour' | 'potion_brewer'
   | 'monster_parts' | 'thieves_guild' | 'gambling_den' | 'fencing_operation'
-  | 'fortune_teller';
+  | 'fortune_teller' | 'trading_post' | 'scholar_tower' | 'research_station';
 
 export type EstablishmentQuality = 'squalid' | 'poor' | 'modest' | 'comfortable' | 'wealthy';
 
@@ -25,7 +25,21 @@ export interface Establishment {
   type: EstablishmentType;
   quality: EstablishmentQuality;
   emoji: string;
-  proprietor: { name: string; race: string; description: string };
+  proprietor: {
+    name: string;
+    race: string;
+    description: string;
+    level?: number;
+    ac?: number;
+    hp?: number;
+    str?: number;
+    dex?: number;
+    con?: number;
+    int?: number;
+    wis?: number;
+    cha?: number;
+    grimoireNpcRef?: string;
+  };
   description: string;
   features: string[];
   stock?: string[];     // shops
@@ -33,6 +47,7 @@ export interface Establishment {
   services?: string[];  // inns, temples, guildhalls
   rumor?: string;       // taverns only
   prices?: string;      // pricing summary
+  grimoireCommerceRef?: string;
 }
 
 // ─── Seeded RNG ──────────────────────────────────────────────────────────────
@@ -67,6 +82,105 @@ function pickN<T>(arr: T[], n: number, rng: () => number): T[] {
     out.push(pool.splice(idx, 1)[0]);
   }
   return out;
+}
+
+// ─── NPC Stat Generation ────────────────────────────────────────────────────
+
+interface ProprietorStats {
+  level: number;
+  ac: number;
+  hp: number;
+  str: number;
+  dex: number;
+  con: number;
+  int: number;
+  wis: number;
+  cha: number;
+}
+
+function generateProprietorStats(estType: EstablishmentType, rng: () => number): ProprietorStats {
+  // Roll base stats (3d6 style)
+  const rollStat = () => Math.floor(rng() * 6) + Math.floor(rng() * 6) + Math.floor(rng() * 6) + 3;
+
+  // Establish baseline for establishment type
+  const baseLevel = Math.floor(rng() * 5) + 3; // 3-7
+
+  let stats = {
+    str: rollStat(),
+    dex: rollStat(),
+    con: rollStat(),
+    int: rollStat(),
+    wis: rollStat(),
+    cha: rollStat(),
+  };
+
+  // Boost relevant stats based on type
+  switch (estType) {
+    case 'blacksmith':
+    case 'stablemaster':
+    case 'shipwright':
+      stats.str = Math.min(18, stats.str + 2);
+      stats.con = Math.min(18, stats.con + 1);
+      break;
+    case 'thieves_guild':
+    case 'fencing_operation':
+    case 'pawnbroker':
+      stats.dex = Math.min(18, stats.dex + 2);
+      stats.cha = Math.min(18, stats.cha + 1);
+      break;
+    case 'alchemist':
+    case 'apothecary':
+    case 'potion_brewer':
+      stats.int = Math.min(18, stats.int + 2);
+      stats.wis = Math.min(18, stats.wis + 1);
+      break;
+    case 'temple':
+    case 'fortune_teller':
+      stats.wis = Math.min(18, stats.wis + 2);
+      stats.cha = Math.min(18, stats.cha + 1);
+      break;
+    case 'tavern':
+    case 'gambling_den':
+      stats.cha = Math.min(18, stats.cha + 2);
+      stats.dex = Math.min(18, stats.dex + 1);
+      break;
+    case 'magic_shop':
+    case 'bookshop':
+    case 'library':
+      stats.int = Math.min(18, stats.int + 1);
+      stats.wis = Math.min(18, stats.wis + 1);
+      break;
+    case 'guildhall':
+      stats.cha = Math.min(18, stats.cha + 1);
+      stats.int = Math.min(18, stats.int + 1);
+      break;
+    case 'trading_post':
+    case 'research_station':
+      stats.int = Math.min(18, stats.int + 1);
+      stats.cha = Math.min(18, stats.cha + 1);
+      break;
+    case 'scholar_tower':
+      stats.int = Math.min(18, stats.int + 2);
+      stats.wis = Math.min(18, stats.wis + 1);
+      break;
+  }
+
+  // Calculate AC and HP
+  const ac = 10 + Math.floor((stats.dex - 10) / 2);
+  const hpPerLevel = Math.floor((stats.con - 10) / 2) + 1;
+  const hp = hpPerLevel * baseLevel + Math.floor(rng() * 8);
+
+  return {
+    level: baseLevel,
+    ac,
+    hp: Math.max(1, hp),
+    str: stats.str,
+    dex: stats.dex,
+    con: stats.con,
+    int: stats.int,
+    wis: stats.wis,
+    cha: stats.cha,
+  };
 }
 
 // ─── Name Parts ──────────────────────────────────────────────────────────────
@@ -1622,6 +1736,7 @@ const EMOJI: Record<EstablishmentType, string> = {
   taxidermist: '🦌', mortician: '💀', shipwright: '⚓', tattoo_parlour: '🎨',
   potion_brewer: '🧪', monster_parts: '🦷', thieves_guild: '🗡️',
   gambling_den: '🎲', fencing_operation: '🔑', fortune_teller: '🔮',
+  trading_post: '🏪', scholar_tower: '🧙', research_station: '🔬',
 };
 
 // ─── District → Type Mapping ──────────────────────────────────────────────────
@@ -2176,6 +2291,9 @@ export function generateDistrictEstablishments(
         break;
     }
 
+    const stats = generateProprietorStats(type, rng);
+    const grimoireNpcRef = `npc_${fnv1a(`${cityId}|${district.name}|${i}|${worldSeed}`).toString(16)}`;
+
     establishments.push({
       id: `${cityId}_${district.name.replace(/\s+/g, '_')}_${i}`,
       name,
@@ -2186,9 +2304,12 @@ export function generateDistrictEstablishments(
         name: type === 'guard_post' ? `Duty Officer ${propFirst} ${propLast}` : `${propFirst} ${propLast}`,
         race: propRace,
         description: proprietorDesc,
+        ...stats,
+        grimoireNpcRef,
       },
       description,
       features,
+      grimoireCommerceRef: `commerce_${fnv1a(`${cityId}|${district.name}|${i}|commerce|${worldSeed}`).toString(16)}`,
       ...(stock && { stock }),
       ...(menu && { menu }),
       ...(services && { services }),
@@ -2198,4 +2319,80 @@ export function generateDistrictEstablishments(
   }
 
   return establishments;
+}
+
+// ─── Generic Establishment Generator (for wonders, dungeons, etc) ──────────
+
+export function generateWonderEstablishment(
+  contextId: string,
+  index: number,
+  worldSeed: string,
+  estType: EstablishmentType = 'trading_post'
+): Establishment {
+  const seedNum = fnv1a(`${contextId}|est|${index}|${worldSeed}`);
+  const rng = makeRng(seedNum);
+
+  const isFemale = rng() > 0.5;
+  const propFirst = pick(isFemale ? PROP_FIRST_F : PROP_FIRST_M, rng);
+  const propLast = pick(PROP_LAST, rng);
+  const propPhysical = pick(PROP_PHYSICAL, rng);
+  const propPersonality = pick(PROP_PERSONALITY, rng);
+  const propRace = pick(PROP_RACES, rng);
+
+  const proprietorDesc = `${propPhysical}, ${propPersonality}.`;
+  const name = `${propFirst}'s ${estType === 'trading_post' ? 'Trading Post' : estType === 'tavern' ? 'Tavern' : 'Establishment'}`;
+
+  // For wonders, establishments are typically high-quality
+  const quality: EstablishmentQuality = rng() > 0.6 ? 'comfortable' : rng() > 0.3 ? 'wealthy' : 'modest';
+
+  const stats = generateProprietorStats(estType, rng);
+  const grimoireNpcRef = `npc_${fnv1a(`${contextId}|${index}|npc|${worldSeed}`).toString(16)}`;
+  const grimoireCommerceRef = `commerce_${fnv1a(`${contextId}|${index}|commerce|${worldSeed}`).toString(16)}`;
+
+  let description = `A unique establishment in an extraordinary location.`;
+  let features: string[] = [];
+  let menu: string[] | undefined;
+
+  // Simple template for wonder establishments
+  if (estType === 'tavern' || estType === 'inn') {
+    description = pick([
+      'A cozy haven for travelers seeking refuge from the wonder\'s strange energies.',
+      'A gathering place where locals and adventurers share stories of the location.',
+      'A refuge with otherworldly charm, permeated by the place\'s essence.',
+    ], rng);
+    features = [
+      `Specialty: ${pick(['rare spirits from across planes', 'food untouched by time', 'rooms that distort sleep cycles'], rng)}`,
+      `Atmosphere: ${pick(['eerily peaceful', 'charged with magical energy', 'seems to exist between moments'], rng)}`,
+    ];
+    menu = ['Local specialties based on the wonder\'s unique resources'];
+  } else {
+    description = pick([
+      'An operation that leverages the wonder\'s unique properties and resources.',
+      'A specialized service provider catering to those who study this location.',
+      'An enterprise built around harvesting or studying the wonder\'s gifts.',
+    ], rng);
+    features = [
+      `Focus: ${pick(['rare resource extraction', 'knowledge accumulation', 'artifact identification'], rng)}`,
+      `Reputation: ${pick(['respected scholars frequent here', 'attracts adventurers seeking rare goods', 'known for discretion'], rng)}`,
+    ];
+  }
+
+  return {
+    id: `${contextId}_est_${index}`,
+    name,
+    type: estType,
+    quality,
+    emoji: EMOJI[estType] || '🏚️',
+    proprietor: {
+      name: `${propFirst} ${propLast}`,
+      race: propRace,
+      description: proprietorDesc,
+      ...stats,
+      grimoireNpcRef,
+    },
+    description,
+    features,
+    ...(menu && { menu }),
+    grimoireCommerceRef,
+  };
 }

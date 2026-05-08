@@ -16,7 +16,7 @@
  * - Consequence weaving (choices that ripple through campaign)
  */
 
-import { fnv1a } from './establishmentGenerator';
+import { fnv1a, generateWonderEstablishment, type EstablishmentType } from './establishmentGenerator';
 
 // ─── Leadership Archetypes (100+ varieties) ────────────────────────────────
 
@@ -183,6 +183,13 @@ const LORE_THEMES = {
     'A place where the boundary between the Elemental Plane of Earth grows thin.',
     'Carved by massive geological upheaval centuries ago, still reshaping itself.',
     'A location where mineral deposits glow faintly in the dark, attracting miners and mages.',
+    'Towering rock formations that hum with resonant energy at dusk and dawn.',
+    'A chasm where the earth\'s pulse can be felt through vibrations in stone.',
+    'Geothermal vents that sustain ecosystems impossible elsewhere in the world.',
+    'Petrified remains of colossal creatures hint at an ancient, vanished age.',
+    'Caverns whose walls display striations recording millions of years of geological history.',
+    'A place where earthquakes create temporary passages to unknown depths.',
+    'Mineral springs that change color with the seasons, never freezing or boiling.',
   ],
   biological: [
     'Home to unique flora that exists nowhere else in the realm.',
@@ -190,6 +197,14 @@ const LORE_THEMES = {
     'Where evolution seems accelerated, species adapt visibly over years.',
     'A location of symbiotic relationships unlike any elsewhere.',
     'Where primal biology and arcane magic intertwine visibly.',
+    'An ecosystem where predator and prey seem locked in eternal, graceful balance.',
+    'Forests where trees grow in impossible patterns, defying natural geometry.',
+    'Wetlands teeming with species that glow bioluminescently after sunset.',
+    'An isolated habitat where extinct species somehow continue to thrive.',
+    'Meadows where seasonal blooms occur in reverse, contradicting natural cycles.',
+    'A region where animals exhibit intelligence far beyond their kind.',
+    'Gardens that sustain themselves without apparent seed, soil, or sunlight.',
+    'Breeding grounds where new species spontaneously emerge from biological confluence.',
   ],
   temporal: [
     'Time moves differently here—seasons compressed or stretched.',
@@ -197,6 +212,13 @@ const LORE_THEMES = {
     'Where the future is sometimes glimpsed in prophetic visions.',
     'A place where aging accelerates or reverses unpredictably.',
     'Where history repeats cyclically, never quite the same way twice.',
+    'A place frozen in a single moment, where change occurs only in specific cyclical windows.',
+    'Where travelers report losing or gaining days without explanation.',
+    'A location where the same events play out slightly differently each iteration.',
+    'A region where time flows at different rates depending on location.',
+    'Where causality seems loosely enforced, effects preceding causes.',
+    'A place where prophecies made here come to pass with uncanny accuracy.',
+    'Locations where ancient events can sometimes be witnessed in spectral reenactment.',
   ],
   divine: [
     'A location touched by divine intervention or celestial attention.',
@@ -204,6 +226,12 @@ const LORE_THEMES = {
     'A place where the barrier between mortal and divine grows thin.',
     'Where miracles occur regularly, defying natural explanation.',
     'A nexus of multiple divine and infernal interests simultaneously.',
+    'A sanctuary where celestial beings occasionally manifest to mortals.',
+    'A place where faith itself seems to gain tangible power.',
+    'Hallowed ground where the divine presence manifests as visible light.',
+    'A location where angels are said to have made covenant with mortals.',
+    'A site of pilgrimage where divine blessings are granted to the worthy.',
+    'A place where the veil between heavens and earth grows dangerously thin.',
   ],
   infernal: [
     'A place where infernal forces exert unusual influence on reality.',
@@ -211,6 +239,11 @@ const LORE_THEMES = {
     'A location where dark pacts have carved permanent marks on existence.',
     'Where damnation seems to linger in the very air.',
     'A crossroads of devilish deals and unholy bargains.',
+    'A location where shadow and substance blur, creating spaces that shouldn\'t exist.',
+    'A place where infernal contracts are said to hold more power than elsewhere.',
+    'A region where the heat of damnation prevents normal vegetation from thriving.',
+    'A cursed location where suffering echoes from past atrocities.',
+    'A place where mortals have bargained away entire bloodlines for power.',
   ],
   mystical: [
     'An epicenter of ley lines where magical energy pools visibly.',
@@ -218,6 +251,15 @@ const LORE_THEMES = {
     'Where magic is stronger and stranger than anywhere else.',
     'A place saturated with residual enchantments from ages past.',
     'Where the Feywild and Material Plane overlap significantly.',
+    'A node in the world\'s magical network, where power flows like water.',
+    'A place where wild magic surges manifest in beautiful, terrible ways.',
+    'A location where arcane and natural magic complement each other perfectly.',
+    'A site where ancient mages conducted experiments whose effects persist.',
+    'A place where the boundary between dreams and reality grows porous.',
+    'A location pulsing with undifferentiated magical energy seeking form.',
+    'A sanctuary where magic behaves more predictably than anywhere else.',
+    'A place where magical phenomena have their own ecosystem and predators.',
+    'A region where magic seems to have consciousness and intention.',
   ],
 };
 
@@ -232,7 +274,18 @@ const WONDER_CONFLICTS = [
   'Multiple interdimensional entities claim ownership simultaneously.',
   'The location\'s power slowly drives its leaders to madness.',
   'Prophecy suggests the location\'s dominion will pass hands within years.',
+  'Outsiders and natives clash over the location\'s resources and sacred status.',
+  'The location\'s power is slowly depleting, raising existential questions.',
+  'A forbidden pact made long ago is now coming due for reckoning.',
+  'The leader protects a terrible secret that maintains the location\'s stability.',
+  'Ancient grievances between entities manifest through this location.',
+  'The location itself seems to resist certain forms of control or exploitation.',
+  'A prophecy bound to this place must be fulfilled or disaster follows.',
+  'The location\'s influence attracts those seeking power but corrupts them.',
+  'A previous ruler\'s legacy continues to shape events from beyond death.',
+  'Multiple species claim native status, creating complex territorial disputes.',
 ];
+
 
 const RESOURCE_FOCUSES = [
   'Magic-infused water that holds medicinal properties',
@@ -243,6 +296,14 @@ const RESOURCE_FOCUSES = [
   'Mineral deposits worth fortunes to the right buyer',
   'Knowledge preserved in archaic runes and ancient records',
   'Seeds and specimens that propagate nowhere else',
+  'Residual magical essence that enchanters prize above all',
+  'Biological matter from creatures found nowhere else',
+  'Artifacts left behind by previous visitors and residents',
+  'Information about forbidden magical practices',
+  'Materials that exist only during specific seasonal windows',
+  'Living creatures whose very existence violates natural law',
+  'Fragments of divine or infernal essence made corporeal',
+  'Time-touched objects that age or refresh in mysterious ways',
 ];
 
 const DANGER_SOURCES = [
@@ -253,6 +314,15 @@ const DANGER_SOURCES = [
   'Monsters drawn by the location\'s unusual magical aura',
   'The land itself seems actively hostile to trespassers',
   'Temporal distortions that disorient and strand travelers',
+  'Visitors gradually infected by the location\'s corrupting influence',
+  'Reality-warping phenomena that rearrange the physical landscape',
+  'Intelligent entities that regard mortals as interesting playthings',
+  'Residual traps from previous inhabitants still perfectly functional',
+  'The location\'s power attracting darker entities from distant planes',
+  'Psychological effects that manifest as paranoia or delusion',
+  'Weather patterns that respond to the location\'s magical fluctuations',
+  'Travelers lost to time dilation, returning years later unchanged',
+  'Echoes of past catastrophes that replay periodically',
 ];
 
 // ─── Boon/Bane Pools ──────────────────────────────────────────────────────
@@ -500,20 +570,23 @@ export function generateEcologicalWonder(
     pickSeeded(BANE_POOLS[baneCategories3], wonderSeed, 35),
   ];
 
-  // Generate 2-4 local establishments connected to GRIMOIRE commerce
+  // Generate 2-4 local establishments with full detail
   const establishmentCount = Math.floor(seededRandom(wonderSeed, 40) * 3) + 2;
+  const estTypes: EstablishmentType[] = ['trading_post', 'scholar_tower', 'apothecary', 'alchemist', 'temple', 'tavern'];
   const establishments = [];
 
   for (let i = 0; i < establishmentCount; i++) {
-    const estType = pickSeeded(
-      ['Trading Post', 'Scholar\'s Tower', 'Healing Spring House', 'Alchemist Lab', 'Beast Handler', 'Guide Service'],
-      wonderSeed, 41 + i
+    const estTypeIdx = Math.floor(seededRandom(wonderSeed, 41 + i) * estTypes.length);
+    const estType = estTypes[estTypeIdx];
+    const est = generateWonderEstablishment(
+      `wonder_${hex_x}_${hex_y}`,
+      i,
+      worldSeed,
+      estType
     );
     establishments.push({
-      id: `est_${fnv1a(wonderSeed + '|est|' + i).toString(16)}`,
-      name: `${estType} of ${wonderName}`,
-      type: estType,
-      grimoireCommerceRef: `commerce_${fnv1a(wonderSeed + '|commerce|' + i).toString(16)}`,
+      ...est,
+      name: `${est.proprietor.name}'s ${est.name.split("'")[1] || 'Establishment'}`,
     });
   }
 
