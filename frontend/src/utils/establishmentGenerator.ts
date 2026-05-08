@@ -299,6 +299,9 @@ const SHOP_NOUNS: Record<EstablishmentType, string[]> = {
   gambling_den: ['Ante', 'Bet', 'Cut', 'Deal', 'Dice', 'Draw', 'Hand', 'House', 'Odds', 'Pot', 'Rake', 'Risk', 'Stake', 'Token'],
   fencing_operation: ['Cache', 'Exchange', 'Front', 'Goods', 'Hold', 'Lot', 'Move', 'Shelf', 'Stash', 'Stock', 'Trade', 'Vault'],
   fortune_teller: ['Card', 'Eye', 'Gaze', 'Glass', 'Oracle', 'Omen', 'Palm', 'Rune', 'Sign', 'Star', 'Thread', 'Veil', 'Vision'],
+  trading_post: ['Bazaar', 'Caravan', 'Exchange', 'Goods', 'Market', 'Post', 'Stock', 'Trade', 'Wares', 'Way'],
+  scholar_tower: ['Archive', 'Atlas', 'Codex', 'Collection', 'Folio', 'Knowledge', 'Lore', 'Manuscript', 'Research', 'Study'],
+  research_station: ['Analysis', 'Apparatus', 'Basin', 'Chamber', 'Collection', 'Data', 'Engine', 'Experiment', 'Lab', 'Station'],
 };
 
 const INN_SUFFIXES = ['Inn', 'Rest', 'Lodge', 'House', 'Stay', 'Arms', 'Retreat'];

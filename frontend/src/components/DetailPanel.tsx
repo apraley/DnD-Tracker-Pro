@@ -107,7 +107,8 @@ const TYPE_LABEL: Record<EstablishmentType, string> = {
   taxidermist: 'Taxidermist', mortician: 'Mortician', shipwright: 'Shipwright',
   tattoo_parlour: 'Tattoo Parlour', potion_brewer: 'Potion Brewer', monster_parts: 'Monster Parts',
   thieves_guild: 'Thieves\' Guild', gambling_den: 'Gambling Den', fencing_operation: 'Fencing Operation',
-  fortune_teller: 'Fortune Teller',
+  fortune_teller: 'Fortune Teller', trading_post: 'Trading Post', scholar_tower: 'Scholar Tower',
+  research_station: 'Research Station',
 };
 
 const TYPE_COLOR: Record<EstablishmentType, string> = {
@@ -120,6 +121,7 @@ const TYPE_COLOR: Record<EstablishmentType, string> = {
   taxidermist: '#7d6608', mortician: '#5d6d7e', shipwright: '#1a6b8a', tattoo_parlour: '#6c3483',
   potion_brewer: '#9b59b6', monster_parts: '#922b21', thieves_guild: '#1c2833',
   gambling_den: '#d35400', fencing_operation: '#626567', fortune_teller: '#6c3483',
+  trading_post: '#7f8c8d', scholar_tower: '#3498db', research_station: '#16a085',
 };
 
 // ─── Grimoire session-note formatter ────────────────────────────────────────

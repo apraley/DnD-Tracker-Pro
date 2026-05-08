@@ -25,7 +25,7 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName, 
 
   // Function to draw the city map on any canvas
   const drawCityMap = (canvas: HTMLCanvasElement, canvasW: number, canvasH: number) => {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d')!;
     if (!ctx) return;
 
     const { hexes, seeds, width: W, height: H } = layout;

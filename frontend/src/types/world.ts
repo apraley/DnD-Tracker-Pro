@@ -102,6 +102,25 @@ export interface PointOfInterest {
       id: string;
       name: string;
       type: string;
+      quality?: string;
+      emoji?: string;
+      proprietor?: {
+        name: string;
+        race?: string;
+        description?: string;
+        level?: number;
+        ac?: number;
+        hp?: number;
+        str?: number;
+        dex?: number;
+        con?: number;
+        int?: number;
+        wis?: number;
+        cha?: number;
+        grimoireNpcRef?: string;
+      };
+      description?: string;
+      features?: string[];
       grimoireCommerceRef: string;
     }>;
     discoveryRequirement?: string;
