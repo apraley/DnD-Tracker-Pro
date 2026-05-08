@@ -10,11 +10,12 @@ interface Props {
   worldSeed: string;
   districts: Array<{ name: string; character: string; establishments: unknown[] }>;
   cityName: string;
+  terrainType?: number;
 }
 
-const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }) => {
+const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName, terrainType }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [layout] = useState(() => generateCityMap(cityId, worldSeed, districts));
+  const [layout] = useState(() => generateCityMap(cityId, worldSeed, districts, terrainType));
   const [hoveredDistrict, setHoveredDistrict] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
@@ -200,14 +201,52 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }
               >✕</button>
             </div>
 
-            {/* Expanded canvas */}
-            <div style={{
-              borderRadius: 6,
-              overflow: 'hidden',
-              border: '1px solid #2e2e42',
-              marginBottom: 16,
-              cursor: 'pointer',
-            }}>
+            {/* Expanded canvas with hover tracking */}
+            <div
+              style={{
+                borderRadius: 6,
+                overflow: 'hidden',
+                border: '1px solid #2e2e42',
+                marginBottom: 16,
+                cursor: 'pointer',
+              }}
+              onMouseMove={(e) => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (EXPANDED_W / rect.width);
+                const y = (e.clientY - rect.top) * (EXPANDED_H / rect.height);
+
+                // Find which district is under the cursor
+                const { hexes, seeds, width: W, height: H } = layout;
+                const hexSize = Math.min(
+                  (EXPANDED_W * 0.88) / (W * 1.5 + 0.5),
+                  (EXPANDED_H * 0.88) / (Math.sqrt(3) * (H + 0.5)),
+                );
+                const offX = EXPANDED_W / 2 - (W / 2) * hexSize * 1.5;
+                const offY = EXPANDED_H / 2 - (H / 2) * hexSize * Math.sqrt(3);
+
+                function hexCenter(col: number, row: number) {
+                  return {
+                    x: offX + hexSize * 1.5 * col + hexSize,
+                    y: offY + hexSize * Math.sqrt(3) * (row + (col % 2) * 0.5) + hexSize,
+                  };
+                }
+
+                // Check distance to each seed
+                let closestSeed = null;
+                let closestDist = hexSize * 2;
+                for (const seed of seeds) {
+                  const { x: cx, y: cy } = hexCenter(seed.col, seed.row);
+                  const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
+                  if (dist < closestDist) {
+                    closestDist = dist;
+                    closestSeed = seed;
+                  }
+                }
+
+                setHoveredDistrict(closestSeed?.character || null);
+              }}
+              onMouseLeave={() => setHoveredDistrict(null)}
+            >
               <canvas
                 width={EXPANDED_W}
                 height={EXPANDED_H}

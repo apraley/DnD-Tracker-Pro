@@ -387,6 +387,8 @@ const DistrictCard: React.FC<{
 const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythweaverUrl: string }> = ({ city, exNovo, world, mythweaverUrl }) => {
   const [copied, setCopied] = React.useState(false);
 
+  const terrainType = world.hexGrid?.[`${city.hex_x},${city.hex_y}`]?.terrainType;
+
   const payload = {
     rule_system: 'D&D 5e',
     setting_custom: world.name,
@@ -423,6 +425,7 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
         worldSeed={world.worldSeed}
         districts={exNovo.districts}
         cityName={city.name}
+        terrainType={terrainType}
       />
       {/* City at a glance */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
