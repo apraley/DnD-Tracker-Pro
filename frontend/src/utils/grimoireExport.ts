@@ -64,9 +64,48 @@ export function exportForGrimoire(world: World) {
     // City-to-city travel graph (Priority 4)
     routes: world.routes ?? [],
 
-    pointsOfInterest: world.pointsOfInterest,
+    // Points of Interest with Ecological Wonder metadata
+    pointsOfInterest: world.pointsOfInterest.map(poi => {
+      if (poi.wonderMetadata?.leader?.grimoireNpcRef) {
+        // Wonder has leader NPC reference — ensure it's available for GRIMOIRE NPC builder
+        return {
+          ...poi,
+          // Marker for GRIMOIRE: use the leader NPC reference for stat block generation
+          _wonderLeaderNpcRef: poi.wonderMetadata.leader.grimoireNpcRef,
+          // Commerce references for establishments that need to be generated
+          _wonderCommerceRefs: (poi.wonderMetadata.establishments ?? []).map(e => e.grimoireCommerceRef),
+        };
+      }
+      return poi;
+    }),
 
     // World-level NPCs with combat block
     npcs: (world.npcs ?? []).map(n => ({ ...n, combat: npcCombat(n) })),
+
+    // Metadata: which POIs have leaders that should be resolved through NPC builder
+    wonderReferences: {
+      schema: 1,
+      description: 'References to NPCs and Commerce entries for Ecological Wonders',
+      npcReferenceMapping: world.pointsOfInterest
+        .filter(poi => poi.wonderMetadata?.leader?.grimoireNpcRef)
+        .map(poi => ({
+          poiId: poi.id,
+          poiName: poi.name,
+          leaderName: poi.wonderMetadata!.leader!.name,
+          leaderArchetype: poi.wonderMetadata!.leader!.archetype,
+          leaderAlignment: poi.wonderMetadata!.leader!.alignment,
+          grimoireNpcRef: poi.wonderMetadata!.leader!.grimoireNpcRef,
+        })),
+      commerceReferenceMapping: world.pointsOfInterest
+        .filter(poi => poi.wonderMetadata?.establishments && poi.wonderMetadata.establishments.length > 0)
+        .flatMap(poi => (poi.wonderMetadata!.establishments ?? []).map(est => ({
+          poiId: poi.id,
+          poiName: poi.name,
+          establishmentId: est.id,
+          establishmentName: est.name,
+          establishmentType: est.type,
+          grimoireCommerceRef: est.grimoireCommerceRef,
+        }))),
+    },
   };
 }

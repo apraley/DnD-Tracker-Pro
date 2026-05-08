@@ -83,6 +83,29 @@ export interface PointOfInterest {
   cityConnections?: Array<{ cityId: string; distance: number }>;
   generatedLore?: string;
   donjonLayout?: string;
+
+  // Ecological Wonder Integration
+  wonderMetadata?: {
+    terrain: string;
+    lore: string;
+    leader?: {
+      name: string;
+      archetype: string;
+      style: string;
+      alignment: string;
+      grimoireNpcRef: string;
+    };
+    questHooks?: Array<{ title: string; description: string; difficulty: number }>;
+    boons?: Array<{ name: string; description: string; mechanicalEffect: string }>;
+    banes?: Array<{ name: string; description: string; mechanicalEffect: string }>;
+    establishments?: Array<{
+      id: string;
+      name: string;
+      type: string;
+      grimoireCommerceRef: string;
+    }>;
+    discoveryRequirement?: string;
+  };
 }
 
 export interface AdventureHook {

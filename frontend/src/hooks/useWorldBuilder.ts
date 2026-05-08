@@ -9,10 +9,11 @@ import {
   generateLandmarkName,
   resetNameGenerator
 } from '../utils/nameGenerator';
-import { generateTerrain, getViableLocations, getLandLocations } from '../utils/terrainGenerator';
+import { generateTerrain, getViableLocations, getLandLocations, findLandRegions, TERRAIN_NAMES } from '../utils/terrainGenerator';
 import { simulateExNovo } from '../utils/exNovoSimulator';
 import { fnv1a } from '../utils/establishmentGenerator';
 import { exportForGrimoire } from '../utils/grimoireExport';
+import { generateEcologicalWonder } from '../utils/ecologicalWonders';
 
 // Hex terrain type → travel label
 const HEX_TERRAIN_LABEL: Record<number, string> = {
@@ -44,6 +45,11 @@ export const useWorldBuilder = () => {
           savedAt: Date.now(),
           version: 1,
         }));
+        // ── Priority 1b: postMessage to GRIMOIRE parent frame (iframe embedding) ──
+        // Works across origins — GRIMOIRE listens for { type: 'grimoire-world', payload }
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'grimoire-world', payload }, '*');
+        }
       } catch (storageErr) {
         console.warn('localStorage write failed (may be full or unavailable):', storageErr);
       }
@@ -73,6 +79,7 @@ export const useWorldBuilder = () => {
     );
     const viableForCities = getViableLocations(hexGrid);
     const viableForPOIs = getLandLocations(hexGrid);
+    const landRegions = findLandRegions(hexGrid, mapW, mapH);
 
     // Shuffle locations
     const shuffledCities = [...viableForCities].sort(() => Math.random() - 0.5);
@@ -83,8 +90,31 @@ export const useWorldBuilder = () => {
     const govTypes = ['Monarchy', 'Democracy', 'Oligarchy', 'Theocracy', 'Merchant Republic'];
     const economicFocuses = ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'];
 
+    // ── Guarantee at least one city per significant landmass ──────────────────
+    // "Significant" = at least 20 hexes so tiny specks don't force a city.
+    // Pick a random viable hex on that continent as the anchor.
+    const occupiedHexKeys = new Set<string>();
+
+    const anchorLocs: Array<{ col: number; row: number }> = [];
+    for (const region of landRegions) {
+      if (region.viableForCities.length === 0) continue;   // no flat land (all peaks)
+      if (region.hexes.length < 20) continue;              // tiny island — skip
+      const pool = [...region.viableForCities].sort(() => Math.random() - 0.5);
+      const chosen = pool[0];
+      anchorLocs.push({ col: chosen.col, row: chosen.row });
+      occupiedHexKeys.add(`${chosen.col},${chosen.row}`);
+    }
+
+    // Build city list: anchors first, then fill with shuffled viable locations
+    const allLocs: Array<{ col: number; row: number }> = [
+      ...anchorLocs,
+      ...shuffledCities
+        .filter(h => !occupiedHexKeys.has(`${h.col},${h.row}`))
+        .map(h => ({ col: h.col, row: h.row })),
+    ];
+
     for (let i = 0; i < cityCount; i++) {
-      const loc = shuffledCities[i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
+      const loc = allLocs[i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
       const cityName = generateCityName();
       // ── Priority 3: stable seeded ID — same seed+index+name always → same ID
       const cityId = `city_${fnv1a(worldSeed + '|' + i + '|' + cityName).toString(16)}`;
@@ -117,31 +147,70 @@ export const useWorldBuilder = () => {
 
     const pois: PointOfInterest[] = [];
     const poiCount = Math.min(30 + ((params.civilizationAbundance || 5) * 2), 50);
-    const poiTypes = [
+
+    // ── Priority: Split POI generation between ecological wonders and other types ──
+    const wonderCount = Math.floor(poiCount * 0.6);  // 60% wonders (lush content)
+    const otherCount = poiCount - wonderCount;
+
+    const otherPoiTypes = [
       'dungeon', 'dungeon', 'dungeon',
       'ruins', 'ruins',
-      'natural_wonder', 'natural_wonder',
       'geographical_landmark', 'geographical_landmark',
       'cave', 'tomb', 'crypt', 'lair',
       'shrine', 'settlement',
     ];
 
-    for (let i = 0; i < poiCount; i++) {
-      const poiType = poiTypes[i % poiTypes.length];
-      const loc = shuffledPOIs[cityCount + i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
+    // Generate ecological wonders with full richness
+    for (let i = 0; i < wonderCount; i++) {
+      const loc = shuffledPOIs[i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
+      const poiName = generateWonderName();
+      const terrainType = hexGrid[`${loc.col},${loc.row}`]?.terrainType ?? 4;
+      const terrainName = TERRAIN_NAMES[terrainType] ?? 'Unknown Terrain';
+
+      const wonder = generateEcologicalWonder(i, worldSeed, poiName, loc.col, loc.row, terrainType, terrainName);
+
+      pois.push({
+        id: wonder.id,
+        name: wonder.name,
+        type: wonder.type,
+        hex_x: wonder.hex_x,
+        hex_y: wonder.hex_y,
+        dangerLevel: wonder.dangerLevel,
+        description: wonder.lore,
+        adventureHooks: wonder.questHooks.map(qh => ({
+          title: qh.title,
+          description: qh.description,
+          encounterType: 'discovery',
+          difficulty: qh.difficulty,
+        })),
+        discovered: false,
+        wonderMetadata: {
+          terrain: wonder.terrain,
+          lore: wonder.lore,
+          leader: wonder.leader,
+          questHooks: wonder.questHooks,
+          boons: wonder.boons,
+          banes: wonder.banes,
+          establishments: wonder.establishments,
+          discoveryRequirement: wonder.discoveryRequirement,
+        },
+      } as PointOfInterest);
+    }
+
+    // Generate other POI types for variety
+    for (let i = 0; i < otherCount; i++) {
+      const poiType = otherPoiTypes[i % otherPoiTypes.length];
+      const loc = shuffledPOIs[wonderCount + i] || { col: Math.floor(Math.random() * mapW), row: Math.floor(Math.random() * mapH) };
       let poiName: string;
       if (['dungeon', 'ruins', 'cave', 'tomb', 'crypt', 'lair'].includes(poiType)) {
         poiName = generateDungeonName();
-      } else if (poiType === 'natural_wonder') {
-        poiName = generateWonderName();
       } else if (poiType === 'geographical_landmark') {
         poiName = generateLandmarkName();
       } else {
         poiName = generatePOIName();
       }
 
-      // ── Priority 3: stable seeded POI ID
-      const poiId = `poi_${fnv1a(worldSeed + '|' + i + '|' + poiName).toString(16)}`;
+      const poiId = `poi_${fnv1a(worldSeed + '|' + (wonderCount + i) + '|' + poiName).toString(16)}`;
 
       pois.push({
         id: poiId,
@@ -149,7 +218,6 @@ export const useWorldBuilder = () => {
         type: poiType,
         hex_x: loc.col,
         hex_y: loc.row,
-        terrainType: hexGrid[`${loc.col},${loc.row}`]?.terrainType ?? 4,
         dangerLevel: Math.floor(Math.random() * 20) + 1,
         description: 'A mysterious location waiting to be explored.',
         adventureHooks: [],
