@@ -22,9 +22,8 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }
   const CANVAS_W = 380, CANVAS_H = 240;
   const EXPANDED_W = 600, EXPANDED_H = 500;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Function to draw the city map on any canvas
+  const drawCityMap = (canvas: HTMLCanvasElement, canvasW: number, canvasH: number) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -32,12 +31,12 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }
 
     // Hex size to fit the grid
     const hexSize = Math.min(
-      (CANVAS_W * 0.88) / (W * 1.5 + 0.5),
-      (CANVAS_H * 0.88) / (Math.sqrt(3) * (H + 0.5)),
+      (canvasW * 0.88) / (W * 1.5 + 0.5),
+      (canvasH * 0.88) / (Math.sqrt(3) * (H + 0.5)),
     );
 
-    const offX = CANVAS_W / 2 - (W / 2) * hexSize * 1.5;
-    const offY = CANVAS_H / 2 - (H / 2) * hexSize * Math.sqrt(3);
+    const offX = canvasW / 2 - (W / 2) * hexSize * 1.5;
+    const offY = canvasH / 2 - (H / 2) * hexSize * Math.sqrt(3);
 
     function hexCenter(col: number, row: number) {
       const x = offX + hexSize * 1.5 * col + hexSize;
@@ -46,23 +45,23 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }
     }
 
     function drawHex(cx: number, cy: number, size: number, fill: string, stroke: string, lineWidth: number) {
-      ctx!.beginPath();
+      ctx.beginPath();
       for (let i = 0; i < 6; i++) {
         const a = (Math.PI / 3) * i;
         const px = cx + size * Math.cos(a), py = cy + size * Math.sin(a);
-        i === 0 ? ctx!.moveTo(px, py) : ctx!.lineTo(px, py);
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
       }
-      ctx!.closePath();
-      ctx!.fillStyle = fill;
-      ctx!.fill();
-      ctx!.strokeStyle = stroke;
-      ctx!.lineWidth = lineWidth;
-      ctx!.stroke();
+      ctx.closePath();
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
     }
 
     // Background
     ctx.fillStyle = '#080810';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillRect(0, 0, canvasW, canvasH);
 
     // Draw hexes
     for (const hex of hexes) {
@@ -117,9 +116,14 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(212,175,55,0.5)';
-    ctx.fillText(cityName.toUpperCase(), CANVAS_W / 2, CANVAS_H - 4);
+    ctx.fillText(cityName.toUpperCase(), canvasW / 2, canvasH - 4);
+  };
 
-  }, [layout, hoveredDistrict, cityName]);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    drawCityMap(canvas, expanded ? EXPANDED_W : CANVAS_W, expanded ? EXPANDED_H : CANVAS_H);
+  }, [layout, hoveredDistrict, cityName, expanded]);
 
   // Handle canvas click to expand
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -205,9 +209,9 @@ const CityMiniMap: React.FC<Props> = ({ cityId, worldSeed, districts, cityName }
               cursor: 'pointer',
             }}>
               <canvas
-                ref={canvasRef}
                 width={EXPANDED_W}
                 height={EXPANDED_H}
+                ref={canvasRef}
                 style={{ display: 'block', width: '100%', height: 'auto' }}
               />
             </div>
