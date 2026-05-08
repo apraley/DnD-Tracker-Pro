@@ -59,6 +59,13 @@ export function exportForGrimoire(world: World) {
       districts:      c.exNovoMetadata?.districts ?? [],
       npcs:           (c.notableCitizens ?? []).map(n => ({ ...n, combat: npcCombat(n) })),
       factions:       c.rulingFactions ?? [],
+      // City NPCs with GRIMOIRE NPC builder references
+      _cityLeaderRef: (c.notableCitizens ?? [])[0]?.id,
+      _cityNpcRefs: (c.notableCitizens ?? []).slice(1).map(n => n.id),
+      // Commerce references for district establishments
+      _commerceRefs: (c.exNovoMetadata?.districts ?? []).flatMap(d =>
+        (d.establishments ?? []).map(e => (e as any).grimoireCommerceRef || '')
+      ).filter(Boolean),
     })),
 
     // City-to-city travel graph (Priority 4)
@@ -82,11 +89,37 @@ export function exportForGrimoire(world: World) {
     // World-level NPCs with combat block
     npcs: (world.npcs ?? []).map(n => ({ ...n, combat: npcCombat(n) })),
 
-    // Metadata: which POIs have leaders that should be resolved through NPC builder
-    wonderReferences: {
+    // Metadata: NPC and Commerce references for all world content
+    npcReferences: {
       schema: 1,
-      description: 'References to NPCs and Commerce entries for Ecological Wonders',
-      npcReferenceMapping: world.pointsOfInterest
+      description: 'NPC references for GRIMOIRE NPC builder integration',
+
+      // City leaders and notable citizens
+      cityLeaders: world.cities
+        .filter(c => (c.notableCitizens ?? []).length > 0)
+        .map(c => ({
+          cityId: c.id,
+          cityName: c.name,
+          leaderName: c.notableCitizens![0].name,
+          leaderType: c.notableCitizens![0].type,
+          leaderRole: (c.notableCitizens![0] as any).role || 'Unknown',
+          leaderAlignment: c.notableCitizens![0].alignment,
+          grimoireNpcRef: c.notableCitizens![0].id,
+        })),
+
+      // Other notable city citizens
+      cityCitizens: world.cities
+        .flatMap(c => (c.notableCitizens ?? []).slice(1).map(npc => ({
+          cityId: c.id,
+          cityName: c.name,
+          citizenName: npc.name,
+          citizenType: npc.type,
+          citizenRole: (npc as any).role || 'Unknown',
+          grimoireNpcRef: npc.id,
+        }))),
+
+      // Ecological wonder leaders
+      wonderLeaders: world.pointsOfInterest
         .filter(poi => poi.wonderMetadata?.leader?.grimoireNpcRef)
         .map(poi => ({
           poiId: poi.id,
@@ -96,7 +129,30 @@ export function exportForGrimoire(world: World) {
           leaderAlignment: poi.wonderMetadata!.leader!.alignment,
           grimoireNpcRef: poi.wonderMetadata!.leader!.grimoireNpcRef,
         })),
-      commerceReferenceMapping: world.pointsOfInterest
+    },
+
+    commerceReferences: {
+      schema: 1,
+      description: 'Commerce references for GRIMOIRE commerce engine integration',
+
+      // City establishments (from districts)
+      cityEstablishments: world.cities
+        .flatMap(c => (c.exNovoMetadata?.districts ?? []).flatMap(d =>
+          (d.establishments ?? []).map(est => ({
+            cityId: c.id,
+            cityName: c.name,
+            districtName: d.name,
+            establishmentId: est.id,
+            establishmentName: est.name,
+            establishmentType: est.type,
+            proprietorName: (est as any).proprietor?.name || 'Unknown',
+            grimoireCommerceRef: (est as any).grimoireCommerceRef ||
+              `commerce_${Math.random().toString(16).slice(2)}`,
+          }))
+        )),
+
+      // Ecological wonder establishments
+      wonderEstablishments: world.pointsOfInterest
         .filter(poi => poi.wonderMetadata?.establishments && poi.wonderMetadata.establishments.length > 0)
         .flatMap(poi => (poi.wonderMetadata!.establishments ?? []).map(est => ({
           poiId: poi.id,

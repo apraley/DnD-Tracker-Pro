@@ -14,6 +14,8 @@ import { simulateExNovo } from '../utils/exNovoSimulator';
 import { fnv1a } from '../utils/establishmentGenerator';
 import { exportForGrimoire } from '../utils/grimoireExport';
 import { generateEcologicalWonder } from '../utils/ecologicalWonders';
+import { generateCityLeader, generateCityNotableCitizens, generateCrimeLord } from '../utils/cityNpcGenerator';
+import { generateCityEstablishments } from '../utils/cityCommerceGenerator';
 
 // Hex terrain type → travel label
 const HEX_TERRAIN_LABEL: Record<number, string> = {
@@ -119,6 +121,14 @@ export const useWorldBuilder = () => {
       // ── Priority 3: stable seeded ID — same seed+index+name always → same ID
       const cityId = `city_${fnv1a(worldSeed + '|' + i + '|' + cityName).toString(16)}`;
 
+      // ── Generate city leader through NPC builder ──────────────────────────
+      const cityLeader = generateCityLeader(i, cityName, worldSeed);
+      cityLeader.associatedCityId = cityId;
+
+      // ── Generate notable citizens (5-7 NPCs) ──────────────────────────────
+      const notableCitizens = generateCityNotableCitizens(i, cityName, worldSeed, 6);
+      notableCitizens.forEach(npc => { npc.associatedCityId = cityId; });
+
       cities.push({
         id: cityId,
         name: cityName,
@@ -130,7 +140,7 @@ export const useWorldBuilder = () => {
         history: 'A city with a rich and storied past.',
         rulingFactions: [],
         criminalElements: 'Various underworld elements',
-        notableCitizens: [],
+        notableCitizens: [cityLeader, ...notableCitizens],
         economicFocus: economicFocuses[Math.floor(Math.random() * economicFocuses.length)],
         discovered: false
       } as City);
@@ -139,9 +149,26 @@ export const useWorldBuilder = () => {
     // ── Priority 2: Pre-generate ExNovo districts with establishments ─────────
     for (const city of cities) {
       const exNovo = simulateExNovo(city, worldSeed, magicLevel);
+
+      // ── Generate city commerce establishments (shops, taverns, etc) ────────
+      // Note: ExNovo already provides establishments in districts
+      // We generate additional standalone establishments and link to GRIMOIRE
+      const cityEstablishments = generateCityEstablishments(
+        cities.indexOf(city),
+        city.name,
+        worldSeed
+      );
+
       city.exNovoMetadata = {
         districtCount: exNovo.districts.length,
-        districts: exNovo.districts,
+        districts: exNovo.districts.map(district => ({
+          ...district,
+          // Add GRIMOIRE commerce references to each establishment
+          establishments: (district.establishments || []).map(est => ({
+            ...est,
+            grimoireCommerceRef: `commerce_${fnv1a(worldSeed + '|' + city.id + '|' + est.name).toString(16)}`,
+          })),
+        })),
       };
     }
 
