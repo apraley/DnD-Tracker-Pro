@@ -7,6 +7,10 @@ import { City, PointOfInterest, World } from '../types/world';
 import type { ExNovoCity } from '../utils/exNovoSimulator';
 import type { ExUmbraDungeon } from '../utils/exUmbraSimulator';
 import { generateDistrictEstablishments, Establishment, EstablishmentType } from '../utils/establishmentGenerator';
+import CityMiniMap from './CityMiniMap';
+import DungeonMap from './DungeonMap';
+import WonderDetail from './WonderDetail';
+import { isEcologicalWonder } from '../utils/wonderRenderingHelpers';
 
 interface DetailPanelProps {
   entity: City | PointOfInterest | null;
@@ -414,6 +418,12 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
 
   return (
     <>
+      <CityMiniMap
+        cityId={city.id}
+        worldSeed={world.worldSeed}
+        districts={exNovo.districts}
+        cityName={city.name}
+      />
       {/* City at a glance */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
         {[
@@ -543,7 +553,7 @@ const CityDetail: React.FC<{ city: City; exNovo: ExNovoCity; world: World; mythw
 
 // ─── Dungeon Detail ───────────────────────────────────────────────────────
 
-const DungeonDetail: React.FC<{ poi: PointOfInterest; dungeon: ExUmbraDungeon; mythweaverUrl: string; dungeonPayload: object }> = ({ poi, dungeon, mythweaverUrl, dungeonPayload }) => {
+const DungeonDetail: React.FC<{ poi: PointOfInterest; dungeon: ExUmbraDungeon; mythweaverUrl: string; dungeonPayload: object; worldSeed: string }> = ({ poi, dungeon, mythweaverUrl, dungeonPayload, worldSeed }) => {
   const [copied, setCopied] = React.useState(false);
   const payload = dungeonPayload;
 
@@ -558,6 +568,7 @@ const DungeonDetail: React.FC<{ poi: PointOfInterest; dungeon: ExUmbraDungeon; m
 
   return (
     <>
+      <DungeonMap poi={poi} dungeon={dungeon} worldSeed={worldSeed} />
       <div style={{ background: `${tc}18`, border: `1px solid ${tc}55`, borderRadius: 8, padding: '12px 16px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 10, color: tc, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 2 }}>Challenge Rating</div>
@@ -735,8 +746,11 @@ const DetailPanel: React.FC<DetailPanelProps> = ({ entity, world, mythweaverUrl,
           {city && exNovo && (
             <CityDetail city={city} exNovo={exNovo} world={world} mythweaverUrl={mythweaverUrl} />
           )}
-          {poi && dungeon && dungeonPayload && (
-            <DungeonDetail poi={poi} dungeon={dungeon} mythweaverUrl={mythweaverUrl} dungeonPayload={dungeonPayload} />
+          {poi && isEcologicalWonder(poi) && (
+            <WonderDetail poi={poi} />
+          )}
+          {poi && !isEcologicalWonder(poi) && dungeon && dungeonPayload && (
+            <DungeonDetail poi={poi} dungeon={dungeon} mythweaverUrl={mythweaverUrl} dungeonPayload={dungeonPayload} worldSeed={world.worldSeed} />
           )}
         </div>
       </div>

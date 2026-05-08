@@ -49,17 +49,22 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
   };
 
   const handleRandomizeAll = () => {
-    handleRandomize('age');
-    handleRandomize('magicLevel');
-    handleRandomize('civilizationAbundance');
-    handleRandomize('climate');
-    handleRandomize('terrain');
+    const age = Math.floor(Math.random() * 4900) + 100;
+    const magicLevel = Math.floor(Math.random() * 10) + 1;
+    const civilizationAbundance = Math.floor(Math.random() * 10) + 1;
+    const climate = CLIMATE_OPTIONS[Math.floor(Math.random() * CLIMATE_OPTIONS.length)];
+    const terrain = TERRAIN_OPTIONS[Math.floor(Math.random() * TERRAIN_OPTIONS.length)];
+    setFormData(prev => ({ ...prev, age, magicLevel, civilizationAbundance, climate, terrain }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onGenerate(formData);
   };
+
+  const ageLabel = formData.age < 500 ? 'Young' : formData.age < 1500 ? 'Maturing' : formData.age < 3500 ? 'Ancient' : 'Primordial';
+  const magicLabel = formData.magicLevel <= 2 ? 'Mundane' : formData.magicLevel <= 4 ? 'Rare' : formData.magicLevel <= 7 ? 'Present' : 'Suffused';
+  const civLabel = formData.civilizationAbundance <= 2 ? 'Frontier' : formData.civilizationAbundance <= 5 ? 'Scattered' : formData.civilizationAbundance <= 8 ? 'Settled' : 'Cosmopolitan';
 
   return (
     <div className={styles.container}>
@@ -68,6 +73,7 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
         <p className={styles.subtitle}>Create your next epic campaign setting</p>
 
         <form onSubmit={handleSubmit} className={styles.form}>
+
           {/* World Name */}
           <div className={styles.formGroup}>
             <label htmlFor="name">World Name</label>
@@ -85,27 +91,18 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
           {/* Age */}
           <div className={styles.formGroup}>
             <div className={styles.labelRow}>
-              <label htmlFor="age">World Age (years)</label>
+              <label htmlFor="age">World Age</label>
+              <span className={styles.valueDisplay}>
+                {formData.age.toLocaleString()} yrs — <em>{ageLabel}</em>
+              </span>
               <button
                 type="button"
                 className={styles.randomBtn}
                 onClick={() => handleRandomize('age')}
                 disabled={isLoading}
                 title="Randomize"
-              >
-                🎲
-              </button>
+              >🎲</button>
             </div>
-            <input
-              type="number"
-              id="age"
-              name="age"
-              value={formData.age}
-              onChange={handleChange}
-              min="100"
-              max="5000"
-              disabled={isLoading}
-            />
             <input
               type="range"
               min="100"
@@ -117,35 +114,26 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
               className={styles.range}
             />
             <div className={styles.rangeLabels}>
-              <span>Ancient</span>
               <span>Young</span>
+              <span>Ancient</span>
             </div>
           </div>
 
           {/* Magic Level */}
           <div className={styles.formGroup}>
             <div className={styles.labelRow}>
-              <label htmlFor="magicLevel">Magic Level (1-10)</label>
+              <label htmlFor="magicLevel">Magic Level</label>
+              <span className={styles.valueDisplay}>
+                {formData.magicLevel}/10 — <em>{magicLabel}</em>
+              </span>
               <button
                 type="button"
                 className={styles.randomBtn}
                 onClick={() => handleRandomize('magicLevel')}
                 disabled={isLoading}
                 title="Randomize"
-              >
-                🎲
-              </button>
+              >🎲</button>
             </div>
-            <input
-              type="number"
-              id="magicLevel"
-              name="magicLevel"
-              value={formData.magicLevel}
-              onChange={handleChange}
-              min="1"
-              max="10"
-              disabled={isLoading}
-            />
             <input
               type="range"
               min="1"
@@ -165,27 +153,18 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
           {/* Civilization Abundance */}
           <div className={styles.formGroup}>
             <div className={styles.labelRow}>
-              <label htmlFor="civilizationAbundance">Civilization Abundance (1-10)</label>
+              <label htmlFor="civilizationAbundance">Civilization</label>
+              <span className={styles.valueDisplay}>
+                {formData.civilizationAbundance}/10 — <em>{civLabel}</em>
+              </span>
               <button
                 type="button"
                 className={styles.randomBtn}
                 onClick={() => handleRandomize('civilizationAbundance')}
                 disabled={isLoading}
                 title="Randomize"
-              >
-                🎲
-              </button>
+              >🎲</button>
             </div>
-            <input
-              type="number"
-              id="civilizationAbundance"
-              name="civilizationAbundance"
-              value={formData.civilizationAbundance}
-              onChange={handleChange}
-              min="1"
-              max="10"
-              disabled={isLoading}
-            />
             <input
               type="range"
               min="1"
@@ -202,58 +181,55 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
             </div>
           </div>
 
-          {/* Climate */}
-          <div className={styles.formGroup}>
-            <div className={styles.labelRow}>
-              <label htmlFor="climate">Climate</label>
-              <button
-                type="button"
-                className={styles.randomBtn}
-                onClick={() => handleRandomize('climate')}
+          {/* Climate + Terrain side by side */}
+          <div className={styles.twoCol}>
+            <div className={styles.formGroup}>
+              <div className={styles.labelRow}>
+                <label htmlFor="climate">Climate</label>
+                <button
+                  type="button"
+                  className={styles.randomBtn}
+                  onClick={() => handleRandomize('climate')}
+                  disabled={isLoading}
+                  title="Randomize"
+                >🎲</button>
+              </div>
+              <select
+                id="climate"
+                name="climate"
+                value={formData.climate}
+                onChange={handleChange}
                 disabled={isLoading}
-                title="Randomize"
               >
-                🎲
-              </button>
+                {CLIMATE_OPTIONS.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
-            <select
-              id="climate"
-              name="climate"
-              value={formData.climate}
-              onChange={handleChange}
-              disabled={isLoading}
-            >
-              {CLIMATE_OPTIONS.map(climate => (
-                <option key={climate} value={climate}>{climate}</option>
-              ))}
-            </select>
-          </div>
 
-          {/* Terrain */}
-          <div className={styles.formGroup}>
-            <div className={styles.labelRow}>
-              <label htmlFor="terrain">Primary Terrain</label>
-              <button
-                type="button"
-                className={styles.randomBtn}
-                onClick={() => handleRandomize('terrain')}
+            <div className={styles.formGroup}>
+              <div className={styles.labelRow}>
+                <label htmlFor="terrain">Terrain</label>
+                <button
+                  type="button"
+                  className={styles.randomBtn}
+                  onClick={() => handleRandomize('terrain')}
+                  disabled={isLoading}
+                  title="Randomize"
+                >🎲</button>
+              </div>
+              <select
+                id="terrain"
+                name="terrain"
+                value={formData.terrain}
+                onChange={handleChange}
                 disabled={isLoading}
-                title="Randomize"
               >
-                🎲
-              </button>
+                {TERRAIN_OPTIONS.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
-            <select
-              id="terrain"
-              name="terrain"
-              value={formData.terrain}
-              onChange={handleChange}
-              disabled={isLoading}
-            >
-              {TERRAIN_OPTIONS.map(terrain => (
-                <option key={terrain} value={terrain}>{terrain}</option>
-              ))}
-            </select>
           </div>
 
           {/* Buttons */}
@@ -271,13 +247,13 @@ const WorldGeneratorForm: React.FC<WorldGeneratorFormProps> = ({ onGenerate, isL
               className={styles.primaryBtn}
               disabled={isLoading}
             >
-              {isLoading ? '⚙️ Generating World...' : '✨ Generate World'}
+              {isLoading ? '⚙️ Generating...' : '✨ Generate World'}
             </button>
           </div>
         </form>
 
         <div className={styles.footer}>
-          <p>This will create a unique world with 10+ cities, 10+ natural wonders, and 20+ points of interest.</p>
+          <p>Generates a unique world with cities, dungeons, wonders, and points of interest.</p>
         </div>
       </div>
     </div>

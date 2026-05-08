@@ -433,3 +433,71 @@ export function getViableLocations(hexGrid: Record<string, HexCell>): HexCell[] 
 export function getLandLocations(hexGrid: Record<string, HexCell>): HexCell[] {
   return Object.values(hexGrid).filter(h => h.terrainType >= 3);
 }
+
+// ─── Continent / island detection ────────────────────────────────────────────
+
+export interface LandRegion {
+  /** All hexes in this connected landmass */
+  hexes: HexCell[];
+  /** Subset suitable for city placement (terrainType 3-10) */
+  viableForCities: HexCell[];
+}
+
+/** Flat-top even-q offset hex neighbours */
+function hexNeighbors(col: number, row: number): [number, number][] {
+  return col % 2 === 0
+    ? [[col - 1, row - 1], [col - 1, row], [col, row - 1], [col, row + 1], [col + 1, row - 1], [col + 1, row]]
+    : [[col - 1, row],     [col - 1, row + 1], [col, row - 1], [col, row + 1], [col + 1, row],  [col + 1, row + 1]];
+}
+
+/**
+ * BFS flood-fill: returns every connected landmass sorted by size (largest first).
+ * Water types: 0 (deep ocean), 1 (ocean), 2 (shallow water).
+ */
+export function findLandRegions(
+  hexGrid: Record<string, HexCell>,
+  width: number,
+  height: number,
+): LandRegion[] {
+  const WATER = new Set([0, 1, 2]);
+  const visited = new Set<string>();
+  const regions: LandRegion[] = [];
+
+  for (let col = 0; col < width; col++) {
+    for (let row = 0; row < height; row++) {
+      const key = `${col},${row}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      const hex = hexGrid[key];
+      if (!hex || WATER.has(hex.terrainType)) continue;
+
+      // BFS from this unvisited land hex
+      const region: HexCell[] = [];
+      const queue: string[] = [key];
+
+      while (queue.length > 0) {
+        const k = queue.shift()!;
+        const h = hexGrid[k];
+        if (!h) continue;
+        region.push(h);
+
+        for (const [nc, nr] of hexNeighbors(h.col, h.row)) {
+          const nk = `${nc},${nr}`;
+          if (visited.has(nk)) continue;
+          visited.add(nk);
+          const nh = hexGrid[nk];
+          if (nh && !WATER.has(nh.terrainType)) queue.push(nk);
+        }
+      }
+
+      regions.push({
+        hexes: region,
+        viableForCities: region.filter(h => h.terrainType >= 3 && h.terrainType <= 10),
+      });
+    }
+  }
+
+  // Largest landmasses first
+  return regions.sort((a, b) => b.hexes.length - a.hexes.length);
+}

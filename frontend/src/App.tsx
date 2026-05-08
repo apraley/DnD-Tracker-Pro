@@ -6,8 +6,14 @@ import DetailPanel from './components/DetailPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useWorldBuilder } from './hooks/useWorldBuilder';
 import { simulateExNovo } from './utils/exNovoSimulator';
+import {
+  generateCityName,
+  generateDungeonName,
+  generatePOIName,
+} from './utils/nameGenerator';
+import { fnv1a } from './utils/establishmentGenerator';
 import { simulateExUmbra, buildMythweaverPayload } from './utils/exUmbraSimulator';
-import { World, City, PointOfInterest, WorldParams } from './types/world';
+import { World, City, PointOfInterest, WorldParams, NPC, Faction } from './types/world';
 import './App.css';
 
 type SidebarTab = 'cities' | 'dungeons' | 'wonders' | 'poi' | 'landmarks';
@@ -21,6 +27,7 @@ function App() {
   const { world: initialWorld, loading, error, generateWorld } = useWorldBuilder();
   const [world, setWorld] = useState<World | null>(initialWorld);
   const [selectedEntity, setSelectedEntity] = useState<City | PointOfInterest | null>(null);
+  const [centerTarget, setCenterTarget] = useState<{ col: number; row: number; _t?: number } | null>(null);
   const [hoveredHex, setHoveredHex] = useState<{ x: number; y: number } | null>(null);
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('cities');
   const [worldLore, setWorldLore] = useState<string | null>(null);
@@ -44,6 +51,51 @@ function App() {
       setSidebarTab('cities');
     } catch (err) {
       console.error('Generation failed:', err);
+    }
+  };
+
+  // ── Right-click "Add entity" handler ──────────────────────────────────────────
+  const handleAddEntity = (col: number, row: number, type: 'city' | 'poi' | 'dungeon') => {
+    if (!world) return;
+    const stamp = Date.now().toString();
+    if (type === 'city') {
+      const name = generateCityName();
+      const id = `city_${fnv1a(stamp + '|' + col + '|' + row + '|' + name).toString(16)}`;
+      const govTypes = ['Monarchy', 'Democracy', 'Oligarchy', 'Theocracy', 'Merchant Republic'];
+      const econFocuses = ['Agriculture', 'Mining', 'Trade', 'Fishing', 'Crafting'];
+      const newCity: City = {
+        id,
+        name,
+        population: Math.floor(Math.random() * 30000) + 3000,
+        hex_x: col,
+        hex_y: row,
+        governmentType: govTypes[Math.floor(Math.random() * govTypes.length)],
+        history: 'A newly founded settlement.',
+        rulingFactions: [] as Faction[],
+        criminalElements: 'Unknown',
+        notableCitizens: [] as NPC[],
+        economicFocus: econFocuses[Math.floor(Math.random() * econFocuses.length)],
+        discovered: false,
+      };
+      setWorld({ ...world, cities: [...world.cities, newCity] });
+      setSelectedEntity(newCity);
+    } else {
+      const poiType = type === 'dungeon' ? 'dungeon' : 'shrine';
+      const name = type === 'dungeon' ? generateDungeonName() : generatePOIName();
+      const id = `poi_${fnv1a(stamp + '|' + col + '|' + row + '|' + name).toString(16)}`;
+      const newPOI: PointOfInterest = {
+        id,
+        name,
+        type: poiType,
+        hex_x: col,
+        hex_y: row,
+        dangerLevel: Math.floor(Math.random() * 10) + 1,
+        description: 'A newly discovered location.',
+        adventureHooks: [],
+        discovered: false,
+      };
+      setWorld({ ...world, pointsOfInterest: [...world.pointsOfInterest, newPOI] });
+      setSelectedEntity(newPOI);
     }
   };
 
@@ -208,27 +260,24 @@ function App() {
         <div className="topbar-left">
           <h1 className="world-title">{world.name}</h1>
           <div className="world-meta">
-            <span>🕰 {world.age}y</span>
+            <span>{world.age.toLocaleString()}y old</span>
             <span>✨ Magic {world.magicLevel}/10</span>
-            <span>👥 Civ {world.civilizationAbundance}/10</span>
             <span>🌡 {world.climate}</span>
             {world.terrainStats && (
-              <>
-                <span>🌊 {world.terrainStats.waterPercent}% ocean</span>
-                <span>🌿 {Math.round((world.terrainStats.grassland / world.terrainStats.totalHexes) * 100)}% grassland</span>
-                <span>🌲 {Math.round((world.terrainStats.forest / world.terrainStats.totalHexes) * 100)}% forest</span>
-                <span>⛰️ {Math.round((world.terrainStats.mountains / world.terrainStats.totalHexes) * 100)}% mountains</span>
-              </>
+              <span>🌊 {world.terrainStats.waterPercent}% ocean</span>
             )}
+            <span>🏙️ {world.cities.length} cities</span>
           </div>
         </div>
         <div className="topbar-actions">
-          <button className="btn btn-lore" onClick={handleGenerateWorldLore} disabled={worldLoreLoading}>
-            {worldLoreLoading ? '⏳' : '📜'} LORE
+          <button
+            className="btn btn-lore"
+            onClick={worldLore ? () => setShowWorldLore(v => !v) : handleGenerateWorldLore}
+            disabled={worldLoreLoading}
+            title={worldLore ? 'Toggle lore view' : 'Generate world lore'}
+          >
+            {worldLoreLoading ? '⏳' : '📜'} {worldLore ? 'Lore' : 'Gen Lore'}
           </button>
-          {worldLore && (
-            <button className="btn btn-ghost" onClick={() => setShowWorldLore(true)}>🌍 View Lore</button>
-          )}
           <button
             className="btn btn-ghost"
             onClick={handleGenerateMapArt}
@@ -236,26 +285,21 @@ function App() {
             title={openAiKey ? 'Generate AI map art (DALL-E 3)' : 'Set OpenAI API key in ⚙️ Settings first'}
             style={mapImageUrl ? { borderColor: '#9b59b6', color: '#9b59b6' } : undefined}
           >
-            {mapImageLoading ? '⏳' : '🎨'} {mapImageUrl ? 'Regen Art' : 'Map Art'}
+            {mapImageLoading ? '⏳' : '🎨'}
           </button>
           {mapImageUrl && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 10, color: '#555566' }}>opacity</span>
-              <input
-                type="range" min={0.1} max={1} step={0.05}
-                value={mapImageOpacity}
-                onChange={e => setMapImageOpacity(Number(e.target.value))}
-                style={{ width: 70, cursor: 'pointer', accentColor: '#9b59b6' }}
-                title="Adjust map art overlay opacity"
-              />
-              <button className="btn btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }}
-                onClick={() => setMapImageUrl(null)} title="Remove map art overlay">✕</button>
-            </div>
+            <input
+              type="range" min={0.1} max={1} step={0.05}
+              value={mapImageOpacity}
+              onChange={e => setMapImageOpacity(Number(e.target.value))}
+              style={{ width: 60, cursor: 'pointer', accentColor: '#9b59b6' }}
+              title="Map art opacity"
+            />
           )}
           <AdventureForgeExport world={world} />
-          <button className="btn btn-ghost" onClick={handleExportWorld}>📥 Export</button>
-          <button className="btn btn-ghost" onClick={() => setShowSettings(true)} title="Configure Mythweaver URL">⚙️</button>
-          <button className="btn btn-ghost" onClick={() => { setWorld(null); setWorldLore(null); }}>🔄 New World</button>
+          <button className="btn btn-ghost" onClick={handleExportWorld} title="Export world JSON">📥</button>
+          <button className="btn btn-ghost" onClick={() => setShowSettings(true)} title="Settings">⚙️</button>
+          <button className="btn btn-ghost" onClick={() => { setWorld(null); setWorldLore(null); }} title="Generate new world">🔄</button>
         </div>
       </header>
 
@@ -306,7 +350,11 @@ function App() {
                 <div
                   key={entity.id}
                   className={`entity-card ${selectedEntity?.id === entity.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedEntity(entity)}
+                  onClick={() => {
+                    setSelectedEntity(entity);
+                    // Pan + zoom the map to this entity's hex (timestamp forces re-fire for same hex)
+                    setCenterTarget({ col: entity.hex_x, row: entity.hex_y, _t: Date.now() });
+                  }}
                 >
                   <div className="entity-card-header">
                     <span className="entity-name">{entity.name}</span>
@@ -359,6 +407,8 @@ function App() {
             world={world}
             onHexHover={(x, y) => setHoveredHex({ x, y })}
             onHexClick={entity => setSelectedEntity(entity)}
+            onAddEntity={handleAddEntity}
+            centerOn={centerTarget}
             highlightedId={selectedEntity?.id ?? null}
           />
           {/* DALL-E map art overlay */}
