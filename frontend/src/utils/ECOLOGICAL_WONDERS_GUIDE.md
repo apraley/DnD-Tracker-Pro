@@ -1,0 +1,402 @@
+# Ecological Wonders System Guide
+
+## Overview
+
+The Ecological Wonders system generates rich, contextual natural locations with:
+- **100+ leadership archetypes** (no "ruled with iron fist" repetition)
+- **Deep lore** woven from multiple themes and conflicts
+- **Quest hooks** (3-4 per location, difficulty-scaled)
+- **Boons & Banes** (3 options each, mechanically distinct)
+- **GRIMOIRE integration** for NPCs and commerce systems
+
+## Architecture
+
+### Data Structure
+
+Each ecological wonder is embedded in a `PointOfInterest` with the `wonderMetadata` extension:
+
+```typescript
+{
+  id: 'wonder_xxx',
+  name: 'The Crystalline Reaches',
+  type: 'ecological_wonder',
+  hex_x: 45, hex_y: 78,
+  
+  // Core POI fields
+  dangerLevel: 14,
+  description: 'Full lore...',
+  adventureHooks: [...],
+  
+  // Extended wonder data
+  wonderMetadata: {
+    terrain: 'High Mountains',
+    lore: 'A nexus of earth and stone...',
+    
+    // Leader (generated for GRIMOIRE NPC builder)
+    leader: {
+      name: 'Thelmor the Stonekeeper',
+      archetype: 'Sentinel Eternal',
+      style: 'leader guards against specific terrible threat obsessively',
+      alignment: 'Lawful Neutral',
+      grimoireNpcRef: 'npc_abc123' // Pass to GRIMOIRE NPC builder
+    },
+    
+    // Quest hooks (3-4 varying difficulties)
+    questHooks: [
+      {
+        title: 'Seek the Sentinel\'s Wisdom',
+        description: '...',
+        difficulty: 3
+      }
+    ],
+    
+    // Boons (3 categories: magical, physical, knowledge, social)
+    boons: [
+      {
+        name: 'Essence Attunement',
+        description: '...',
+        mechanicalEffect: '+2 to spell save DC for one school of magic for 30 days'
+      }
+    ],
+    
+    // Banes (3 categories: magical, physical, mental, social)
+    banes: [
+      {
+        name: 'Spell Backlash',
+        description: '...',
+        mechanicalEffect: 'Disadvantage on spell attack rolls and spell save DCs for 7 days'
+      }
+    ],
+    
+    // Local establishments (pass to GRIMOIRE commerce engine)
+    establishments: [
+      {
+        id: 'est_xyz',
+        name: 'Trading Post of The Crystalline Reaches',
+        type: 'Trading Post',
+        grimoireCommerceRef: 'commerce_def456' // Pass to GRIMOIRE commerce engine
+      }
+    ],
+    
+    discoveryRequirement: 'Location known to explorers...'
+  }
+}
+```
+
+## GRIMOIRE Integration Points
+
+### 1. NPC Builder Integration
+
+Each wonder's leader is created for the GRIMOIRE NPC builder:
+
+```typescript
+// From GRIMOIRE export
+{
+  wonderReferences: {
+    npcReferenceMapping: [
+      {
+        poiId: 'wonder_xxx',
+        poiName: 'The Crystalline Reaches',
+        leaderName: 'Thelmor the Stonekeeper',
+        leaderArchetype: 'Sentinel Eternal',
+        leaderAlignment: 'Lawful Neutral',
+        grimoireNpcRef: 'npc_abc123'
+      }
+    ]
+  }
+}
+```
+
+**How GRIMOIRE uses this:**
+1. Load `grimoireNpcRef` from the wonder metadata
+2. Pass the leader name, archetype, and alignment to NPC builder
+3. Generate full stat blocks, personality quirks, and detailed backstory
+4. Store back in GRIMOIRE's NPC registry
+
+### 2. Commerce Engine Integration
+
+Each wonder's establishments are created through GRIMOIRE commerce:
+
+```typescript
+{
+  wonderReferences: {
+    commerceReferenceMapping: [
+      {
+        poiId: 'wonder_xxx',
+        poiName: 'The Crystalline Reaches',
+        establishmentId: 'est_xyz',
+        establishmentName: 'Trading Post of The Crystalline Reaches',
+        establishmentType: 'Trading Post',
+        grimoireCommerceRef: 'commerce_def456'
+      }
+    ]
+  }
+}
+```
+
+**How GRIMOIRE uses this:**
+1. Load `grimoireCommerceRef` for each establishment
+2. Pass location context (wonder name, terrain, leader) to commerce engine
+3. Generate inventory, proprietor, rumors, prices
+4. Create quest hooks tied to trade/commerce activities
+5. Store back in GRIMOIRE's establishment registry
+
+## Leadership Archetypes (Sample)
+
+The system includes 50+ unique leadership styles:
+
+- **Protective**: Guardian Saint, Shepherd King, Haunt-Bound Guardian
+- **Power-Focused**: Sorcerer-Empress, Warlord-Tyrant, Beast Master
+- **Knowledge-Focused**: Sage Hermit, Lorekeeper, Scholar-Prophet
+- **Commerce-Focused**: Trade Prince, Guild Master, Black Market Kingpin
+- **Mystical**: Spirit Medium, Curse-Keeper, Avatar Incarnate
+- **Unusual**: Hive Mind, Awakened Plant, Metallic Dragon
+- **Democratic**: Council of Equals, Tribal Rotation, Meritocratic Proving
+- **Eccentric**: Jester-Sage, Collector Obsessive, Music Weaver
+- **Military**: War General, Knight-Paladin, Berserker Warlord
+- **Religious**: High Priestess, Heretic Prophet, Inquisitor
+- **Mysterious**: Unknown Presence, Sleeping Giant, Puppet Master
+
+Each has unique governance style, alignment, and mechanical implications for how parties interact with them.
+
+## Lore Generation
+
+Lore is generated by combining multiple theme pools:
+
+1. **Primary Theme** (50% of lore):
+   - Geological, Biological, Temporal, Divine, Infernal, Mystical
+
+2. **Secondary Theme** (25% of lore):
+   - Different category, layered on top
+
+3. **Conflict** (15% of lore):
+   - What makes ruling this location hard?
+   - Multiple factions, contradictory forces, internal struggles
+
+4. **Resource Focus** (5% of lore):
+   - What's valuable here?
+   - Magical water, rare crystals, unique fauna, spiritual energy
+
+5. **Danger Source** (5% of lore):
+   - What threatens visitors?
+   - Territorial creatures, hazards, the leader's volatility
+
+This creates organic, deeply contextual lore that feels specific and lived-in, not template-based.
+
+## Boons & Banes System
+
+### Boons (Positive Effects)
+
+Four categories with 3 options each:
+
+**Magical**
+- Essence Attunement (+2 spell save DC)
+- Conduit Blessing (advantage on 3 spell attacks)
+- Mystic Resonance (+1 to magical items)
+
+**Physical**
+- Enhanced Vitality (regain 2d10+CON HP)
+- Physical Transformation (+2 STR/DEX)
+- Primal Empowerment (resistance to environmental damage)
+
+**Knowledge**
+- Sudden Insight (ask one yes/no about location)
+- Language Flash (learn ancient language)
+- Skill Impartation (+3 to one skill)
+
+**Social**
+- Charismatic Echo (+3 Persuasion nearby)
+- Diplomatic Mantle (native creatures listen)
+- Legend Whisper (+5 reputation)
+
+### Banes (Negative Effects)
+
+Four categories with 3 options each:
+
+**Magical**
+- Spell Backlash (disadvantage on spells)
+- Mana Drought (double spell slot cost)
+- Curse of Silence (no verbal spells)
+
+**Physical**
+- Weakening Touch (-2 STR/CON)
+- Wasting Affliction (-1 HP/hour)
+- Curse of Fragility (vulnerability to all damage)
+
+**Mental**
+- Whispers of Madness (disadvantage on WIS)
+- Identity Erosion (forget memories)
+- Compulsion Fragment (random hostile action)
+
+**Social**
+- Outcast Stigma (native creatures hostile)
+- Betrayal Jinx (allies distrust you)
+- Reputation Corruption (-10 reputation)
+
+**Design**: Party must choose which to accept, and which risks to take. No "optimal" path—all involve compromise.
+
+## Quest Hooks
+
+Each wonder generates 3-4 quest hooks:
+
+1. **Seek Leadership Wisdom** (difficulty 1-5)
+   - Approach leader, request guidance on [topic]
+   - Price: what does the leader want?
+
+2. **Investigate Mystery** (difficulty 1-8)
+   - Something is wrong with the natural order
+   - Discover cause and fix it, or adapt to change
+
+3. **Serve Community** (difficulty 2-8)
+   - Locals have pressing need
+   - Protection, resource discovery, dispute settlement
+
+4. **Witness Phenomenon** (difficulty 3-7)
+   - Rare event happens once per season
+   - Observe, survive, learn
+
+These ensure each wonder has campaign hooks at multiple difficulty levels, not just "find the treasure."
+
+## Rendering Guidance
+
+### For DetailPanel / Wonder View:
+
+```typescript
+if (poi.wonderMetadata) {
+  return (
+    <WonderDetail wonder={poi.wonderMetadata}>
+      <section>
+        <h3>{poi.name}</h3>
+        <p>{poi.wonderMetadata.lore}</p>
+        
+        <LeaderCard leader={poi.wonderMetadata.leader} />
+        
+        <QuestHooks hooks={poi.wonderMetadata.questHooks} />
+        
+        <BoonsBaneSelector 
+          boons={poi.wonderMetadata.boons}
+          banes={poi.wonderMetadata.banes}
+        />
+        
+        <EstablishmentList 
+          establishments={poi.wonderMetadata.establishments}
+        />
+      </section>
+    </WonderDetail>
+  );
+}
+```
+
+### For GRIMOIRE Link:
+
+```typescript
+// Create deeplink to GRIMOIRE NPC builder with leader ref
+if (poi.wonderMetadata?.leader?.grimoireNpcRef) {
+  const npcLink = `grimoire://npc-builder/${poi.wonderMetadata.leader.grimoireNpcRef}`;
+  
+  // Or show "Generate NPC" button that calls GRIMOIRE API
+  const generateNpc = async () => {
+    const npcData = await grimoireNpcBuilder({
+      name: poi.wonderMetadata.leader.name,
+      archetype: poi.wonderMetadata.leader.archetype,
+      alignment: poi.wonderMetadata.leader.alignment,
+    });
+    // Store result in GRIMOIRE registry
+  };
+}
+```
+
+## Seeded Randomness
+
+All data is deterministic based on:
+- `worldSeed` (global)
+- `wonderIndex` (which wonder in list)
+- `wonderName` (specific wonder name)
+
+This means:
+- Same world seed always generates same wonders
+- Wonders can be regenerated if data lost
+- Parties can share worlds and get identical content
+- Archival is stable long-term
+
+## Performance Notes
+
+- Generation is O(n) in wonder count—no expensive searches
+- All pools are pre-computed (no runtime pooling)
+- Name generation uses seeded FNV-1a hash (fast)
+- GRIMOIRE calls are async; don't block POI loading
+
+## Extensibility
+
+### Adding Leadership Archetypes
+
+```typescript
+const LEADERSHIP_ARCHETYPES = [
+  // ... existing
+  {
+    archetype: 'Your Archetype Name',
+    style: 'How they govern (short description)',
+    alignment: 'Alignment here'
+  }
+];
+```
+
+### Adding Lore Themes
+
+```typescript
+const LORE_THEMES = {
+  // ... existing
+  custom: [
+    'Your lore template with adjectives',
+    'Another template',
+  ]
+};
+```
+
+### Adding Boons/Banes
+
+```typescript
+const BOON_POOLS = {
+  // ... existing
+  custom: [
+    {
+      name: 'Boon Name',
+      description: 'What happens',
+      mechanicalEffect: 'Game mechanic'
+    }
+  ]
+};
+```
+
+## Testing & Validation
+
+To verify generation:
+
+```typescript
+const wonder = generateEcologicalWonder(
+  0,
+  'test-seed',
+  'Test Wonder',
+  50, 50,
+  11, 'Mountains'
+);
+
+console.log({
+  name: wonder.name,
+  leader: wonder.leader.archetype,
+  questCount: wonder.questHooks.length,
+  boonCount: wonder.boons.length,
+  baneCount: wonder.banes.length,
+  estCount: wonder.establishments?.length ?? 0,
+});
+
+// Should consistently output same values for same seed
+```
+
+## Next Steps
+
+1. **UI Components**: Create WonderDetail, LeaderCard, QuestHooks, BoonsBaneSelector
+2. **GRIMOIRE Hooks**: Implement NPC builder callbacks and commerce engine integration
+3. **Filtering/Search**: Allow finding wonders by terrain, danger level, archetype
+4. **Export**: Include wonder refs in GRIMOIRE export data structure
+5. **Mobile**: Responsive detail views for wonder exploration

@@ -1,15 +1,19 @@
 {
   "name": "dnd-tracker-pro",
   "version": "1.0.0",
-  "description": "D&D Campaign Tracker Pro — subscription SaaS",
+  "description": "D&D Campaign Tracker Pro — subscription SaaS with World Builder",
   "private": true,
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build:frontend": "cd frontend && npm run build",
+    "preview:frontend": "cd frontend && npm run preview"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
     "@stripe/stripe-js": "^3.4.0",
     "@supabase/supabase-js": "^2.43.4",
+    "dotenv": "^17.4.2",
     "stripe": "^15.10.0"
   },
   "devDependencies": {

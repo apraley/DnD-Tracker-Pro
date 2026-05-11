@@ -1,0 +1,354 @@
+.lore-gen-btn {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #d4af37 0%, #aa8c2e 100%);
+  color: #1a1f3a;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.lore-gen-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(212, 175, 55, 0.3);
+}
+
+.lore-gen-btn:active {
+  transform: translateY(0);
+}
+
+/* Modal */
+.lore-gen-modal {
+  background: #0f1535;
+  border: 2px solid #d4af37;
+  border-radius: 12px;
+  padding: 32px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  color: #e0e0e0;
+}
+
+.lore-gen-modal h2 {
+  margin: 0 0 8px 0;
+  color: #d4af37;
+  font-size: 28px;
+}
+
+.modal-subtitle {
+  color: #a0a0a0;
+  margin: 0 0 24px 0;
+  font-size: 14px;
+}
+
+.close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #d4af37;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover:not(:disabled) {
+  background: rgba(212, 175, 55, 0.1);
+}
+
+.close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Selection Section */
+.selection-section {
+  margin-bottom: 24px;
+}
+
+.selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.selection-header h3 {
+  margin: 0;
+  color: #d4af37;
+  font-size: 18px;
+}
+
+.select-toggle-btn {
+  padding: 8px 12px;
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid #d4af37;
+  color: #d4af37;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.select-toggle-btn:hover {
+  background: rgba(212, 175, 55, 0.25);
+}
+
+/* Selection List */
+.selection-list {
+  background: #1a1f3a;
+  border: 1px solid #2d3561;
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+}
+
+.selection-category {
+  margin-bottom: 16px;
+}
+
+.selection-category:last-child {
+  margin-bottom: 0;
+}
+
+.selection-category h4 {
+  margin: 0 0 12px 0;
+  color: #d4af37;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.selection-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.selection-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: #d4af37;
+  width: 18px;
+  height: 18px;
+}
+
+.selection-item span:first-of-type {
+  color: #c0c0c0;
+  flex: 1;
+}
+
+.selection-item:hover span:first-of-type {
+  color: #e0e0e0;
+}
+
+.has-lore {
+  padding: 4px 8px;
+  background: rgba(100, 200, 100, 0.2);
+  color: #64c864;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.selection-stats {
+  text-align: center;
+  color: #a0a0a0;
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+/* Progress Section */
+.progress-section {
+  margin-bottom: 24px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.progress-header h3 {
+  margin: 0;
+  color: #d4af37;
+  font-size: 18px;
+}
+
+.progress-count {
+  color: #a0a0a0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+  width: 100%;
+  height: 24px;
+  background: #1a1f3a;
+  border: 1px solid #2d3561;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #d4af37 0%, #aa8c2e 100%);
+  transition: width 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1a1f3a;
+}
+
+.progress-percent {
+  text-align: center;
+  color: #d4af37;
+  font-weight: 600;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.current-item {
+  padding: 12px;
+  background: #1a1f3a;
+  border-left: 3px solid #d4af37;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #c0c0c0;
+}
+
+.current-item strong {
+  color: #d4af37;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.eta {
+  padding: 12px;
+  background: rgba(212, 175, 55, 0.05);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 4px;
+  font-size: 14px;
+  color: #c0c0c0;
+  margin-bottom: 12px;
+}
+
+.eta strong {
+  color: #d4af37;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.completion-message {
+  padding: 16px;
+  background: rgba(100, 200, 100, 0.1);
+  border: 1px solid rgba(100, 200, 100, 0.3);
+  border-radius: 6px;
+  color: #64c864;
+  text-align: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* Start Button */
+.start-btn {
+  width: 100%;
+  padding: 14px;
+  margin-top: 16px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.start-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Scrollbar Styling */
+.selection-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.selection-list::-webkit-scrollbar-track {
+  background: #0f1535;
+}
+
+.selection-list::-webkit-scrollbar-thumb {
+  background: #2d3561;
+  border-radius: 3px;
+}
+
+.selection-list::-webkit-scrollbar-thumb:hover {
+  background: #3d4571;
+}
+
+.lore-gen-modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lore-gen-modal::-webkit-scrollbar-track {
+  background: #0f1535;
+}
+
+.lore-gen-modal::-webkit-scrollbar-thumb {
+  background: #2d3561;
+  border-radius: 3px;
+}
+
+.lore-gen-modal::-webkit-scrollbar-thumb:hover {
+  background: #3d4571;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .lore-gen-modal {
+    width: 95%;
+    max-height: 80vh;
+    padding: 20px;
+  }
+
+  .lore-gen-modal h2 {
+    font-size: 24px;
+  }
+
+  .selection-list {
+    max-height: 300px;
+  }
+
+  .selection-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .select-toggle-btn {
+    width: 100%;
+  }
+}
