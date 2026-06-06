@@ -1,6 +1,6 @@
 const severn = require('../../data/severn-river.json');
 
-export default function handler(req, res) {
+module.exports = function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Content-Type', 'application/json');
@@ -21,4 +21,4 @@ export default function handler(req, res) {
   }
 
   res.json(buoys);
-}
+};
