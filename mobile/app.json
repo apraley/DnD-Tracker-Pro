@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Severn River GPS",
+    "slug": "severn-river-gps",
+    "version": "1.0.0",
+    "assetBundlePatterns": ["**/*"],
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermissions": "Allow Severn River GPS to access your location to track your boat trips."
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTabletMode": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1a3a52"
+      }
+    }
+  }
+}

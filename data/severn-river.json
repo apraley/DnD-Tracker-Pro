@@ -1,0 +1,174 @@
+{
+  "river": {
+    "name": "Severn River",
+    "location": "Maryland, USA",
+    "bounds": {
+      "north": 39.0,
+      "south": 38.8,
+      "east": -76.35,
+      "west": -76.65
+    },
+    "description": "The Severn River is a tributary of the Chesapeake Bay in Anne Arundel County, Maryland"
+  },
+  "locks": [
+    {
+      "id": "lock-1",
+      "name": "Severn River Lock",
+      "latitude": 38.9050,
+      "longitude": -76.4550,
+      "status": "operational",
+      "hours": "Sunrise to Sunset",
+      "contact": "+1-410-555-0123",
+      "lockage_time_minutes": 30,
+      "restrictions": "No vessels over 65 feet"
+    }
+  ],
+  "marinas": [
+    {
+      "id": "marina-1",
+      "name": "Annapolis Yacht Club",
+      "latitude": 38.9722,
+      "longitude": -76.4822,
+      "services": ["fuel", "repair", "pump-out", "mooring"],
+      "capacity": 200,
+      "contact": "+1-410-555-0101"
+    },
+    {
+      "id": "marina-2",
+      "name": "Severn Sailing Association",
+      "latitude": 38.9650,
+      "longitude": -76.4750,
+      "services": ["fuel", "launch-ramp", "mooring"],
+      "capacity": 150,
+      "contact": "+1-410-555-0102"
+    },
+    {
+      "id": "marina-3",
+      "name": "Eastport Yacht Club",
+      "latitude": 38.9580,
+      "longitude": -76.4680,
+      "services": ["fuel", "repair", "pump-out"],
+      "capacity": 120,
+      "contact": "+1-410-555-0103"
+    }
+  ],
+  "buoys": [
+    {
+      "id": "buoy-1",
+      "name": "Severn Entrance - Red",
+      "latitude": 38.9200,
+      "longitude": -76.4500,
+      "type": "nun",
+      "color": "red",
+      "number": 2,
+      "description": "Starboard hand mark"
+    },
+    {
+      "id": "buoy-2",
+      "name": "Severn Entrance - Green",
+      "latitude": 38.9220,
+      "longitude": -76.4520,
+      "type": "can",
+      "color": "green",
+      "number": 1,
+      "description": "Port hand mark"
+    },
+    {
+      "id": "buoy-3",
+      "name": "Mid River - Red",
+      "latitude": 38.9550,
+      "longitude": -76.4650,
+      "type": "nun",
+      "color": "red",
+      "number": 4,
+      "description": "Starboard hand mark"
+    },
+    {
+      "id": "buoy-4",
+      "name": "Mid River - Green",
+      "latitude": 38.9570,
+      "longitude": -76.4670,
+      "type": "can",
+      "color": "green",
+      "number": 3,
+      "description": "Port hand mark"
+    },
+    {
+      "id": "buoy-5",
+      "name": "Upper River - Red",
+      "latitude": 38.9750,
+      "longitude": -76.4800,
+      "type": "nun",
+      "color": "red",
+      "number": 6,
+      "description": "Starboard hand mark"
+    }
+  ],
+  "hazards": [
+    {
+      "id": "hazard-1",
+      "name": "Severn Rocks (South)",
+      "latitude": 38.9150,
+      "longitude": -76.4450,
+      "type": "rocks",
+      "severity": "high",
+      "depth_feet": 3,
+      "description": "Submerged rocks, avoid draft over 2 feet"
+    },
+    {
+      "id": "hazard-2",
+      "name": "Shallow Area - Horn Point",
+      "latitude": 38.9400,
+      "longitude": -76.4600,
+      "type": "shallow",
+      "severity": "medium",
+      "depth_feet": 5,
+      "description": "Shallow water, approach with caution"
+    },
+    {
+      "id": "hazard-3",
+      "name": "Wreck - Unnamed Vessel",
+      "latitude": 38.9480,
+      "longitude": -76.4620,
+      "type": "wreck",
+      "severity": "high",
+      "depth_feet": 8,
+      "description": "Submerged wreck, marked on charts"
+    },
+    {
+      "id": "hazard-4",
+      "name": "Shallow Bar - North Section",
+      "latitude": 38.9650,
+      "longitude": -76.4700,
+      "type": "shallow",
+      "severity": "low",
+      "depth_feet": 6,
+      "description": "Sandy shoal, navigable with care"
+    },
+    {
+      "id": "hazard-5",
+      "name": "Underwater Cable Crossing",
+      "latitude": 38.9550,
+      "longitude": -76.4660,
+      "type": "cable",
+      "severity": "medium",
+      "depth_feet": 12,
+      "description": "Power cable, avoid anchoring"
+    }
+  ],
+  "channels": [
+    {
+      "id": "channel-1",
+      "name": "Main Navigation Channel",
+      "width_feet": 150,
+      "depth_feet": 12,
+      "coordinates": [
+        [38.9200, -76.4500],
+        [38.9350, -76.4580],
+        [38.9500, -76.4650],
+        [38.9650, -76.4750],
+        [38.9800, -76.4850]
+      ]
+    }
+  ]
+}

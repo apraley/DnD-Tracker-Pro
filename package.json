@@ -4,7 +4,11 @@
   "description": "D&D Campaign Tracker Pro — subscription SaaS",
   "private": true,
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "web": "react-scripts start",
+    "mobile": "expo start",
+    "mobile:ios": "expo start --ios",
+    "mobile:android": "expo start --android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
