@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   river: {
     name: 'Severn River',
     location: 'Maryland, USA'
