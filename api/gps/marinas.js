@@ -1,0 +1,24 @@
+const severn = require('../../data/severn-river.json');
+
+export default function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const { minLat, maxLat, minLng, maxLng } = req.query;
+  let marinas = severn.marinas;
+
+  if (minLat && maxLat && minLng && maxLng) {
+    marinas = marinas.filter(m =>
+      m.latitude >= parseFloat(minLat) &&
+      m.latitude <= parseFloat(maxLat) &&
+      m.longitude >= parseFloat(minLng) &&
+      m.longitude <= parseFloat(maxLng)
+    );
+  }
+
+  res.json(marinas);
+}
