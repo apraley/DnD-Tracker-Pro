@@ -2,6 +2,9 @@
   "version": 2,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/exodyssey", "destination": "/public/exodyssey.html" },
+    { "source": "/exodyssey.html", "destination": "/public/exodyssey.html" },
+    { "source": "/ship-maker", "destination": "/public/exodyssey.html" },
     { "source": "/(.*)", "destination": "/public/index.html" }
   ]
 }

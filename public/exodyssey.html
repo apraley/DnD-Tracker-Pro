@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ex Odyssey — the Ship-Maker</title>
+<style>
+:root{
+  --bg:#141821; --panel:#1c2029; --panel2:#232935; --line:#37404f;
+  --ink:#e8e4d8; --dim:#96a0b0; --gold:#d8b35c; --gold2:#b8923e;
+  --green:#7fb069; --red:#d96c5f; --blue:#6fa8c9; --purple:#a98fc4; --teal:#5fb0a5;
+  --paper:#f4eedd; --paperink:#3a3220;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{background:var(--bg); color:var(--ink); font-family:Georgia,'Times New Roman',serif; min-height:100vh;
+  background-image:radial-gradient(circle at 20% -10%,rgba(111,168,201,.06),transparent 45%),radial-gradient(circle at 90% 0%,rgba(216,179,92,.06),transparent 40%);}
+button{font-family:inherit; cursor:pointer;}
+input,select,textarea{font-family:inherit; background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:7px 9px; font-size:14px;}
+select{cursor:pointer;}
+h1,h2,h3{font-weight:normal;}
+a{color:var(--blue);}
+#topbar{display:flex; align-items:center; gap:12px; padding:11px 18px; background:var(--panel); border-bottom:2px solid var(--gold2); position:sticky; top:0; z-index:50; flex-wrap:wrap;}
+#topbar .title{font-size:21px; color:var(--gold); letter-spacing:1px;}
+#topbar .sub{color:var(--dim); font-size:12px; font-style:italic;}
+#topbar .spacer{flex:1;}
+.btn{background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:8px 15px; font-size:14px; transition:all .15s;}
+.btn:hover{border-color:var(--gold); color:var(--gold);}
+.btn.primary{background:var(--gold2); border-color:var(--gold2); color:#1a1408; font-weight:bold;}
+.btn.primary:hover{background:var(--gold); color:#000;}
+.btn.small{padding:4px 10px; font-size:12px;}
+.btn:disabled{opacity:.4; cursor:not-allowed;}
+#main{padding:18px; max-width:1180px; margin:0 auto;}
+.helptext{font-size:13px; color:var(--dim); line-height:1.55;}
+.note{color:var(--dim); font-size:13px; font-style:italic; line-height:1.55;}
+
+/* ---- controls bar ---- */
+.controls{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;}
+.controls .fld{display:flex; flex-direction:column; gap:3px;}
+.controls .fld .lbl{font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:1px;}
+.controls .grow{flex:1; min-width:8px;}
+.controls select{min-width:150px;}
+
+/* ---- ship dossier (scoped) ---- */
+.ship-root{}
+.ship-root .hero{background:linear-gradient(135deg,#12212b,#1a1d24); border:1px solid var(--gold2); border-radius:14px; padding:20px 22px; margin-bottom:15px; position:relative; overflow:hidden;}
+.ship-root .hero:before{content:"⚓"; position:absolute; right:14px; top:-10px; font-size:120px; opacity:.05; color:var(--gold);}
+.ship-root .sname{font-size:28px; color:var(--gold); line-height:1.12;}
+.ship-root .sclass{font-size:16px; color:#e8d9b0; font-style:italic; margin-top:4px;}
+.ship-root .smeta{color:var(--dim); font-size:13.5px; margin-top:11px; line-height:1.5;}
+.ship-root .squote{margin-top:13px; font-size:15px; font-style:italic; color:var(--ink); border-left:3px solid var(--gold2); padding-left:12px;}
+.ship-root .chips{display:flex; gap:9px; flex-wrap:wrap; margin-top:14px;}
+.ship-root .chip{background:#1c2430; border:1px solid var(--blue); color:#c2ddec; border-radius:20px; padding:4px 13px; font-size:12.5px;}
+.ship-root .chip.g{background:#1c2a20; border-color:var(--green); color:#c6e6bd;}
+.ship-root .chip.p{background:#241c2e; border-color:var(--purple); color:#dcccef;}
+.ship-root .chip.r{background:#2a1c1c; border-color:var(--red); color:#f0c4bd;}
+
+.ship-root .panel{background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:16px 18px; margin-bottom:14px;}
+.ship-root .panel h3{color:var(--gold); font-size:14px; text-transform:uppercase; letter-spacing:1.5px; margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:8px; display:flex; align-items:center; gap:8px;}
+.ship-root .grid2{display:grid; grid-template-columns:1fr 1fr; gap:6px 26px;}
+@media (max-width:640px){ .ship-root .grid2{grid-template-columns:1fr;} }
+.ship-root .kv{margin:5px 0; font-size:14.5px; line-height:1.5;}
+.ship-root .kv b{color:#e8d9b0;}
+.ship-root .kv .lead{color:var(--gold); font-weight:bold;}
+
+/* timeline / chronicle */
+.ship-root .tl{list-style:none; margin:0; padding:0;}
+.ship-root .tl li{display:flex; gap:14px; padding:8px 0; border-bottom:1px dashed #2c313b;}
+.ship-root .tl li:last-child{border-bottom:none;}
+.ship-root .tl .yr{flex-shrink:0; width:118px; color:var(--gold); font-weight:bold; font-size:13.5px; text-align:right; font-variant-numeric:tabular-nums; line-height:1.4;}
+.ship-root .tl .yr small{display:block; color:var(--dim); font-weight:normal; font-style:italic; font-size:11px;}
+.ship-root .tl .ev{font-size:14.5px; line-height:1.5;}
+
+/* crew list */
+.ship-root .crewgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px;}
+.ship-root .crewbox{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:8px 10px;}
+.ship-root .crewbox .cn{color:var(--gold); font-size:13px; font-weight:bold;}
+.ship-root .crewbox .cr{color:var(--dim); font-size:11.5px; text-transform:uppercase; letter-spacing:.5px;}
+.ship-root .crewbox .cq{font-size:12.5px; margin-top:3px; line-height:1.4;}
+.ship-root .tally{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+.ship-root .tally .t{background:#181b21; border:1px solid var(--line); border-radius:9px; padding:7px 13px; text-align:center; min-width:78px;}
+.ship-root .tally .t .tv{font-size:20px; color:var(--gold); font-weight:bold; font-variant-numeric:tabular-nums;}
+.ship-root .tally .t .tk{font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; margin-top:1px;}
+
+/* deck cards */
+.ship-root .deck{background:linear-gradient(180deg,#20242c,#1a1d23); border:1px solid var(--line); border-radius:10px; padding:13px 15px; margin:10px 0; border-left:4px solid var(--gold2);}
+.ship-root .deck .dh{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+.ship-root .deck .dn{color:var(--gold); font-size:16px;}
+.ship-root .deck .dtag{font-size:10.5px; text-transform:uppercase; letter-spacing:1px; color:var(--dim); border:1px solid var(--line); border-radius:5px; padding:1px 7px;}
+.ship-root .deck .dlvl{margin-left:auto; font-size:12px; color:var(--dim); font-style:italic;}
+.ship-root .deck .dnote{font-size:14px; line-height:1.5; margin:7px 0 9px;}
+.ship-root .deck .prompt-lbl{font-size:11.5px; color:var(--gold); font-weight:bold; letter-spacing:.5px;}
+.ship-root .deck .prompt{font-size:12px; color:var(--dim); background:rgba(184,134,11,.08); border:1px solid rgba(184,134,11,.22); border-radius:6px; padding:8px 10px; margin:5px 0 7px; line-height:1.5;}
+.ship-root .deck .mini{font-size:11.5px; padding:4px 10px;}
+.ship-root .deck .copied{font-size:11px; color:var(--green); margin-left:7px;}
+
+/* cross-section svg */
+.ship-root .xwrap{overflow-x:auto; text-align:center; background:#12141a; border-radius:9px; padding:10px 6px; border:1px solid var(--line);}
+
+/* stat block */
+.ship-root .stat{background:#20242c; border:1px solid var(--gold2); border-radius:10px; padding:15px 17px;}
+.ship-root .stat .rule{height:2px; background:linear-gradient(90deg,var(--gold2),transparent); margin:9px 0;}
+.ship-root .stat .line{font-size:14px; margin:3px 0;}
+.ship-root .stat .line b{color:#e8d9b0;}
+.ship-root .stat .comps{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:7px; margin-top:8px;}
+.ship-root .stat .comp{background:#181b21; border:1px solid var(--line); border-radius:7px; padding:7px 9px; font-size:12.5px;}
+.ship-root .stat .comp .cn2{color:var(--gold); font-weight:bold; font-size:12.5px;}
+
+.ship-root .hook{margin:8px 0; font-size:14.5px; line-height:1.55; padding-left:19px; position:relative;}
+.ship-root .hook:before{content:"\2693"; position:absolute; left:0; color:var(--gold); font-size:13px;}
+.ship-root .manifest{columns:2; column-gap:26px; font-size:14px; line-height:1.7;}
+@media (max-width:640px){ .ship-root .manifest{columns:1;} }
+
+/* fleet browser */
+#fleet{margin-top:8px;}
+.fleetrow{display:flex; align-items:center; gap:12px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:9px 13px; margin-bottom:6px; cursor:pointer; transition:border-color .15s;}
+.fleetrow:hover{border-color:var(--gold);}
+.fleetrow .fno{color:var(--dim); font-size:12px; font-variant-numeric:tabular-nums; width:44px; flex-shrink:0;}
+.fleetrow .fnm{color:var(--gold); font-weight:600; font-size:14.5px; flex-shrink:0; min-width:180px;}
+.fleetrow .fcl{color:var(--dim); font-size:13px; font-style:italic; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fleetrow .frole{color:var(--blue); font-size:12px; flex-shrink:0;}
+.fleetsearch{display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;}
+.fleetsearch input{flex:1; min-width:180px;}
+.hidden{display:none !important;}
+footer{color:var(--dim); text-align:center; font-size:11.5px; padding:24px 18px; font-style:italic; line-height:1.6;}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span class="title">⚓ Ex Odyssey</span>
+  <span class="sub">the ship-maker — a 1,000-hull fleet for your table</span>
+  <span class="spacer"></span>
+  <button class="btn small" onclick="toggleFleet()" id="fleetbtn">⚓ Browse the Fleet</button>
+  <a class="btn small" href="/" style="text-decoration:none">← Tracker</a>
+</div>
+<div id="main">
+  <div class="controls" id="controls"></div>
+  <div id="fleet" class="hidden"></div>
+  <div id="dossier"></div>
+</div>
+<footer>
+  Ex Odyssey is an unofficial, procedurally-generated ship-maker built as a companion to <b>D&amp;D Tracker Pro</b>,
+  in the spirit of table generators like <i>Ex Novo</i> &amp; <i>Ex Umbra</i>.<br>
+  Every hull is drawn from a fixed corpus of 1,000. Map prompts are written for image generators (paste into your tool of choice).
+</footer>
+
+<script>
+'use strict';
+/* =========================================================================
+   EX ODYSSEY — a procedural ship-maker.
+   One IIFE, no dependencies. Builds a fixed 1,000-hull corpus, forges one
+   to the dropdowns, and renders a full GM dossier: identity, a five-beat
+   history, crew, armament, a vehicle stat block, and a stack of decks — every
+   deck carrying its own top-down battle-map prompt. Exposes window.ODYSSEY.
+   ========================================================================= */
+window.ODYSSEY = (function(){
+/* ---- rng + text helpers ------------------------------------------------- */
+const R=Math.random;
+const ri=(a,b)=>Math.floor(R()*(b-a+1))+a;
+const rf=(a,b)=>a+R()*(b-a);
+const pick=a=>a[Math.floor(R()*a.length)];
+const pickN=(a,n)=>{const c=a.slice(),o=[];while(o.length<n&&c.length)o.push(c.splice(Math.floor(R()*c.length),1)[0]);return o;};
+const chance=p=>R()<p;
+const cap=s=>s?s.charAt(0).toUpperCase()+s.slice(1):s;
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const commN=n=>Number(Math.round(n)).toLocaleString('en-US');
+const sgn=n=>(n>=0?'+':'')+n;
+const round5=n=>Math.round(n/5)*5;
+const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+
+/* ===========================================================================
+   TAXONOMIES — these four drive the dropdowns.
+   =========================================================================== */
+/* Ship classes, smallest to largest. Each carries the numbers every other
+   system reads from: deck count, crew band, tonnage, gun band, length. */
+const SIZES=[
+  {k:'skiff',   l:'Skiff / Longboat (Gargantuan-)', decks:[1,1], crew:[3,10],    tons:[3,18],    guns:[0,1],   len:[18,34],   hp:[80,140],   ac:11, dt:10, spd:'2 mph (rowed/single sail)'},
+  {k:'cutter',  l:'Cutter / Sloop (Gargantuan)',    decks:[1,2], crew:[8,26],    tons:[20,70],   guns:[1,6],   len:[36,60],   hp:[140,220],  ac:12, dt:15, spd:'3 mph (fore-and-aft rig)'},
+  {k:'schooner',l:'Schooner / Brigantine',          decks:[2,3], crew:[20,60],   tons:[80,220],  guns:[4,14],  len:[62,95],   hp:[220,340],  ac:13, dt:20, spd:'4 mph (fast merchant rig)'},
+  {k:'frigate', l:'Frigate / Galleon',              decks:[3,4], crew:[60,220],  tons:[240,900], guns:[16,44], len:[100,165], hp:[340,520],  ac:14, dt:25, spd:'3.5 mph (full-rigged)'},
+  {k:'manowar', l:"Man-o'-War / Ship-of-the-Line",  decks:[4,5], crew:[220,520], tons:[950,2400],guns:[46,110],len:[170,230], hp:[520,760],  ac:15, dt:30, spd:'3 mph (three-decker)'},
+  {k:'leviathan',l:'Dreadnought / Leviathan-class', decks:[5,6], crew:[420,1200],tons:[2600,9000],guns:[80,200],len:[240,420],hp:[760,1400], ac:16, dt:40, spd:'2.5 mph (a floating fortress)'}
+];
+/* Hulls. Mundane first, then the magical hulls — each magical one carries a
+   one-line rules-facing property. */
+const HULLS=[
+  {k:'oak',      mag:false, l:'seasoned oak',            note:'sturdy and unremarkable; caulked with pitch and oakum'},
+  {k:'teak',     mag:false, l:'golden teak',             note:'prized by shipwrights — resists rot and worm without magic'},
+  {k:'ironwood', mag:false, l:'black ironwood',          note:'dense enough to turn a glancing shot; heavy and slow to build'},
+  {k:'greenheart',mag:false,l:'greenheart and pine-tar', note:'a working hull, patched a dozen times and honest about it'},
+  {k:'ironoak',  mag:true,  l:'rune-banded ironoak',     note:'MAGIC HULL: +2 damage threshold; runes flare when the hull is holed'},
+  {k:'dragonbone',mag:true, l:'lashed dragonbone',       note:'MAGIC HULL: resistance to fire damage; the ribs are a single beast'},
+  {k:'coral',    mag:true,  l:'living reef-coral',        note:'MAGIC HULL: self-repairs 2d6 hull HP each dawn while afloat'},
+  {k:'aetherglass',mag:true,l:'frost-clear aetherglass',  note:'MAGIC HULL: transparent below the waterline; can be made briefly invisible'},
+  {k:'starforged',mag:true, l:'star-forged adamant plate',note:'MAGIC HULL: immune to nonmagical bludgeoning; a king’s ransom to build'},
+  {k:'leviathide',mag:true, l:'cured leviathan-hide over ribs',note:'MAGIC HULL: cannot be capsized by natural waves; groans like a living thing'},
+  {k:'ghostwood',mag:true,  l:'silver-grained ghostwood', note:'MAGIC HULL: silent in the water; muffles sound within 30 ft. of the hull'},
+  {k:'stormtimber',mag:true,l:'lightning-fused stormtimber',note:'MAGIC HULL: absorbs the first lightning strike each day and sheds it as speed'}
+];
+/* Forms of power — how she moves. Multiple can stack. Magical flag gates the
+   "magical propulsion" filter, and drives whether the ship gets a power-core deck. */
+const POWERS=[
+  {k:'wind',    mag:false, cat:'wind',    l:'wind & canvas',          short:'sail',      deck:'Sail Loft',      note:'square sails and a good master; at the mercy of the weather'},
+  {k:'oar',     mag:false, cat:'oar',     l:'banked oars',            short:'oars',      deck:'Rowing Deck',    note:'benches of oarsmen — free, pressed, or worse — for when the wind dies'},
+  {k:'oarsail', mag:false, cat:'wind',    l:'oar and sail both',      short:'oar+sail',  deck:'Rowing Deck',    note:'a galley rig: canvas for the open sea, oars for the harbor and the chase'},
+  {k:'airelem', mag:true,  cat:'elemental',l:'a bound air elemental', short:'air-bound', deck:'Elemental Binding', note:'ELEMENTAL POWER: a shackled air elemental fills the sails at will — no wind needed'},
+  {k:'waterelem',mag:true, cat:'elemental',l:'a bound water elemental',short:'water-bound',deck:'Elemental Binding',note:'ELEMENTAL POWER: a water elemental drives the keel; the ship makes way against any current'},
+  {k:'fireelem',mag:true,  cat:'elemental',l:'an infernal fire-boiler',short:'fire-boiler',deck:'Boiler Room',   note:'ELEMENTAL POWER: a caged fire elemental boils the drive; fast, hot, and thirsty for fuel'},
+  {k:'stormelem',mag:true, cat:'elemental',l:'a caged storm-heart',   short:'storm-bound',deck:'Storm Cell',    note:'ELEMENTAL POWER: a bound storm rides in the hold; she outruns her own thunder'},
+  {k:'leyline', mag:true,  cat:'arcane',  l:'leyline sails',          short:'leyline',   deck:'Rune Vault',     note:'ARCANE POWER: sails woven with sigils that catch the world’s ley-currents'},
+  {k:'runedrive',mag:true, cat:'arcane',  l:'a resonant rune-drive',  short:'rune-drive',deck:'Rune Vault',     note:'ARCANE POWER: a humming lattice of enchanted screws; needs an attuned pilot at the helm'},
+  {k:'soul',    mag:true,  cat:'necrotic',l:'a soul-engine',          short:'soul-engine',deck:'Soul Furnace',  note:'NECROTIC POWER: bound souls turn the drive; she runs cold and the crew do not sleep well'},
+  {k:'undead',  mag:true,  cat:'necrotic',l:'tireless drowned rowers',short:'dead-rowed',deck:'Drowned Deck',   note:'NECROTIC POWER: dead men at the oars who never tire and never mutiny'},
+  {k:'divine',  mag:true,  cat:'divine',  l:'a blessed wind',         short:'god-wind',  deck:'Shrine Deck',    note:'DIVINE POWER: a granted wind that fills her sails while the faith holds'},
+  {k:'aether',  mag:true,  cat:'sky',     l:'aether-current lift',    short:'skyship',   deck:'Lift Gallery',   note:'SKY POWER: this hull leaves the water — an airship riding the aether-currents'}
+];
+/* Roles / trades. Colors the prose, the manifest, and the hooks. */
+const ROLES=[
+  {k:'merchant', l:'Merchantman',            adj:'trading',    hold:'cargo'},
+  {k:'privateer',l:'Privateer',              adj:'letter-of-marque', hold:'prize'},
+  {k:'navy',     l:'Ship of the Navy',       adj:'commissioned', hold:'stores'},
+  {k:'explorer', l:'Explorer / Survey Ship', adj:'far-ranging', hold:'survey'},
+  {k:'treasure', l:'Treasure-Hunter',        adj:'fortune-seeking', hold:'salvage'},
+  {k:'smuggler', l:'Smuggler / Free Trader', adj:'discreet',   hold:'contraband'},
+  {k:'pilgrim',  l:'Pilgrim / Temple Ship',  adj:'consecrated', hold:'relics'},
+  {k:'whaler',   l:'Whaler / Sea-Hunter',    adj:'harpoon-armed', hold:'oil'},
+  {k:'pirate',   l:'Pirate Flagship',        adj:'black-flagged', hold:'plunder'},
+  {k:'ferry',    l:'Packet / Passenger Ship',adj:'scheduled',  hold:'passengers'},
+  {k:'research', l:'Arcane Research Vessel',  adj:'thaumic',    hold:'apparatus'},
+  {k:'ghost',    l:'Derelict / Ghost Ship',  adj:'lost',       hold:'nothing anyone living stowed'}
+];
+/* Origin / tone. Flavors the shipwright legend, the quote, and the quirk. */
+const ORIGINS=[
+  {k:'heroic',  l:'Heroic — a proud name'},
+  {k:'grim',    l:'Grim — hard-used and honest'},
+  {k:'mythic',  l:'Mythic — older than her papers'},
+  {k:'eerie',   l:'Eerie — something is wrong aboard'},
+  {k:'sacred',  l:'Sacred — blessed and watched-over'},
+  {k:'cursed',  l:'Cursed — she takes her due'},
+  {k:'whimsical',l:'Whimsical — a strange, lucky boat'}
+];
+
+/* ---- name pools --------------------------------------------------------- */
+const SHIP_ADJ=['Gilded','Drowned','Restless','Iron','Wayward','Crimson','Pale','Fell','Merry','Storm','Salt','Grey','Golden','Black','Silent','Laughing','Weeping','Hungry','Dauntless','Sovereign','Errant','Vagrant','Bright','Sunken','Northern','Bitter','Faithful','Reckless','Verdant','Ashen','Winter','Moonlit','Bloody','Lucky','Wandering'];
+const SHIP_NOUN=['Maelstrom','Gull','Wake','Fortune','Reckoning','Serpent','Dawn','Mistress','Tide','Kraken','Albatross','Lantern','Harpy','Compass','Bounty','Revenant','Osprey','Marlin','Widow','Dragon','Sextant','Herald','Verdict','Mermaid','Pilgrim','Corsair','Barracuda','Tempest','Nightingale','Anchor','Wanderer','Leviathan','Sparrow','Gallows','Cormorant','Trident','Requiem','Meridian'];
+const SHIP_ABSTRACT=['Fortune','Perseverance','Retribution','Endeavour','Providence','Defiance','Temperance','Vengeance','Constance','Ambition','Deliverance','Grievance','Reverie','Insolence','Fidelity','Audacity','Solitude','Patience','Redemption','Folly'];
+const SHIP_SAINT=['Saint Ashra','Saint Corvel','the Lady Meloné','Saint Dunmar','the Twins','Saint Vess','the Storm-Mother','Saint Ombrey','the Deep Lady','Saint Halric'];
+const SHIP_PATTERNS=[
+  ()=>'The '+pick(SHIP_ADJ)+' '+pick(SHIP_NOUN),
+  ()=>'The '+pick(SHIP_ABSTRACT),
+  ()=>pick(SHIP_NOUN)+' of '+placeName(),
+  ()=>'The '+pick(SHIP_ADJ)+' '+pick(SHIP_NOUN),
+  ()=>personName().split(' ')[0]+"'s "+pick(SHIP_NOUN),
+  ()=>'The '+pick(['Pride','Grace','Star','Rose','Crown','Sword','Hope','Ghost','Wolf'])+' of '+placeName(),
+  ()=>pick(SHIP_SAINT)+"'s "+pick(['Mercy','Wrath','Grace','Bell','Blessing','Tear','Vigil'])
+];
+function shipName(){ return pick(SHIP_PATTERNS)(); }
+
+const GIVEN=['Adaric','Bel','Corla','Dax','Esmé','Farin','Greta','Halvard','Ines','Joss','Kestrel','Lio','Mara','Neth','Ondine','Perrin','Quill','Rusk','Sable','Tovi','Ula','Vane','Wren','Xanth','Ysolde','Zeb','Ashkar','Morrow','Calla','Brix','Dorne','Fenwick','Isolde','Marn','Odie','Perl','Sindri','Thessa'];
+const SUR=['Vane','Ashgrove','Dunmore','Kestrelward','Salt','Blackfen','Marrow','Thorn','Greaves','Corvane','Oakhart','Reeve','Sallow','Undermere','Frost','Halloway','Quist','Brine','Cazador','Ormont','Pell','Draymoor','Sixgold','Wrackham','Locke','Mercer','Tallow'];
+function personName(){ return pick(GIVEN)+' '+pick(SUR); }
+
+const PLACE_A=['Grey','Salt','Storm','Iron','Black','Pearl','Wind','Fog','Tide','Amber','Kelp','Bone','Coral','Star','Deep','Silver','Old','New'];
+const PLACE_B=['haven','port','reach','watch','fell','mouth','strand','wick','holm','ferry','moor','crest','barrow','landing','harbor','mere','cove','gate'];
+const PLACE_STANDALONE=['Marrakan','Ys','Volhaven','Tamber','the Broken Isles','Cael Dûr','the Serpent Coast','Old Meridia','the Drowned Marches','Kadresh','Portho Vell','the Amber Straits','Nyx','Sundermoor','the Reaving Sea','Cape Wrath'];
+function placeName(){ return chance(.45)?pick(PLACE_STANDALONE):(pick(PLACE_A)+pick(PLACE_B)); }
+
+const SEAS=['the Reaving Sea','the Amber Straits','the Serpent Coast','the Drowned Marches','the Sea of Bells','the Nyxian Deep','the Sundering','the Kelp Reaches','the Stormwall','the Glass Gulf','the Whale Road','the Cinder Straits'];
+
+/* named calendar so the chronicle reads like a real reckoning */
+const RECKON=[{name:'Harbor Reckoning',rk:'HR'},{name:'the Tide-Count',rk:'TC'},{name:'the Salt Years',rk:'SY'},{name:'Imperial Reckoning',rk:'IR'},{name:'the Deep Count',rk:'DC'}];
+
+/* ===========================================================================
+   BUILDERS — each returns plain data. buildShipCore is the pure core that
+   fills the corpus; no DOM, no reads of the dropdowns.
+   =========================================================================== */
+
+/* --- crew: the "Ng crew number" and its breakdown ------------------------ */
+const OFFICER_ROLES=[
+  ['Captain','holds the ship’s papers and the crew’s fear in equal measure'],
+  ['First Mate','runs the deck so the captain doesn’t have to'],
+  ['Sailing Master','the only soul aboard who truly reads the charts'],
+  ['Bosun','keeps the rigging sound and the hands sober-ish'],
+  ['Master Gunner','counts every barrel of powder twice'],
+  ['Ship’s Surgeon','carpenter’s tools and a strong stomach'],
+  ['Quartermaster','shares out the plunder and the grog'],
+  ['Cook','one leg, one grudge, one unspeakable stew'],
+  ['Ship’s Mage','the reason anything below deck glows'],
+  ['Chaplain','prays for a crew that mostly won’t'],
+  ['Purser','the most hated and least armed person aboard'],
+  ['Cabin-hand','runs messages, spies for whoever pays most']
+];
+const OFF_QUIRK=['keeps a ledger of everyone’s debts','was pressed from a rival crew and hasn’t forgiven it','is secretly the rightful owner','never removes their gloves','has done this run forty times and is bored of dying','carries a charm against the ship’s own curse','is loyal unto death, to the wrong person','knows exactly where the money went'];
+function buildCrew(size, guns, powerMag){
+  const complement = ri(size.crew[0], size.crew[1]);
+  const skeleton = Math.max(3, Math.round(complement*rf(0.22,0.34)));
+  const berths = Math.round(complement*rf(1.05,1.35));
+  const gunners = Math.min(complement-2, Math.round(guns*rf(1.0,1.8)));
+  const specialists = powerMag ? ri(1,4) : (chance(.3)?ri(1,2):0);
+  const nOff = Math.min(OFFICER_ROLES.length, size.k==='skiff'?ri(2,3):size.k==='cutter'?ri(3,4):ri(5,8));
+  const roster = pickN(OFFICER_ROLES, nOff).map(([role,base])=>({name:personName(), role, note:chance(.55)?pick(OFF_QUIRK):base}));
+  // captain always first, always present
+  if(!roster.some(o=>o.role==='Captain')) roster.unshift({name:personName(),role:'Captain',note:pick(OFF_QUIRK)});
+  const hands = Math.max(0, complement - roster.length - gunners - specialists);
+  return {complement, skeleton, berths, gunners, specialists, hands, roster};
+}
+
+/* --- armament ------------------------------------------------------------ */
+const GUN_TYPES=['long guns','carronades','swivel-guns','bombards','chasers (bow & stern)'];
+const EXOTIC_ARMS=['a reinforced ram at the waterline','ballistae on turntables','harpoon-throwers with barbed line','pots of alchemist’s fire and boiling oil','a spell-battery crewed by hedge-mages','a lightning-lance mounted at the bow','grapnel-catapults for boarding','a single enormous bow-chaser they call the Judge'];
+function buildArms(size, powerMag){
+  const n = ri(size.guns[0], size.guns[1]);
+  const perSide = Math.floor(n/2);
+  const type = pick(GUN_TYPES);
+  const exotic = pickN(EXOTIC_ARMS, n===0?1:(chance(.5)?2:1));
+  const boarding = ri(2,6)*Math.max(1,Math.round(size.crew[0]/20));
+  return {n, perSide, type, exotic, boarding};
+}
+
+/* --- decks: every deck carries its own battle-map prompt ----------------- */
+/* Deck templates keyed by tag. `feat` lists what a battle-map of that deck
+   should actually show, and drives both the note and the map prompt. */
+const DECK_LIB={
+  weather: {name:['Weather Deck','Upper Deck','Main Deck'], feat:'the ship’s wheel and binnacle aft, masts stepped through the planking with coils of rigging, gratings and cargo hatches, the ship’s boat lashed amidships, capstan forward, gunwales lined with belaying pins'},
+  quarter: {name:['Quarterdeck','Poop Deck','Command Deck'], feat:'the raised command deck with the helm, a chart-binnacle, signal-flag lockers, and a companion-ladder down to the cabins; open rail overlooking the main deck'},
+  cabin:   {name:['Great Cabin','Captain’s Cabin','Stateroom'], feat:'a stern cabin with a wall of leaded windows over the wake, a chart table and strongbox, a swinging cot, and a private stern-gallery'},
+  gun:     {name:['Gun Deck','Upper Battery','Main Battery'], feat:'a long low deck with rows of cannon run out at gunports down both sides, breeching-ropes and rammers, a central gangway, powder-buckets and shot-garlands'},
+  berth:   {name:['Berth Deck','Crew Deck','Mess Deck'], feat:'ranks of slung hammocks and folding mess-tables, sea-chests along the bulkheads, the galley stove forward with its brick hearth'},
+  cargo:   {name:['Cargo Hold','Main Hold','The Hold'], feat:'a deep hold stacked with crates, casks and barrels in cargo-netting, water-butts amidships, a ladder down through the hatch, ballast and bilge-boards below'},
+  orlop:   {name:['Orlop Deck','Lower Deck','Between-Decks'], feat:'a dim deck below the waterline: storerooms and the sail-locker, the cable-tiers coiled, the surgeon’s cockpit with its table, lanterns behind glass'},
+  hold:    {name:['Lower Hold','Bilge','Ballast Deck'], feat:'the lowest space against the keel — ballast stones and shingle, black bilge-water, the pumps, and whatever has been hidden where no honest crewman goes'},
+  magazine:{name:['Powder Magazine','Shot Locker','The Magazine'], feat:'a sealed, copper-lined room of powder-barrels and shot, felt slippers at the door, a single shrouded lantern behind thick glass, one way in'},
+  power:   {name:['Power Core'], feat:'THE DRIVE'} // overwritten per-power
+};
+function buildDecks(ship){
+  const size=ship.sizeData, decks=[];
+  const nDecks = ri(size.decks[0], size.decks[1]);
+  let depth=0;
+  const add=(tag, over)=>{
+    const lib=DECK_LIB[tag]||DECK_LIB.cargo;
+    const nm = over && over.name ? over.name : pick(lib.name);
+    const feat = over && over.feat ? over.feat : lib.feat;
+    decks.push({n:decks.length+1, depth:depth++, tag, name:nm, feat});
+  };
+  // above the waterline
+  add('weather');
+  if(nDecks>=3 && chance(.7)) add('quarter');
+  add('cabin');
+  // batteries — scale with size and guns
+  const nGun = ship.arms.n>0 ? Math.min(2, Math.max(1, Math.round(nDecks/2)-1)) : 0;
+  for(let i=0;i<nGun;i++) add('gun', i>0?{name:'Lower Battery'}:null);
+  // living + power
+  add('berth');
+  const pw=ship.powerData.find(p=>p.mag) || ship.powerData.find(p=>p.deck==='Rowing Deck');
+  if(pw){
+    const powerFeat = pw.deck==='Rowing Deck'
+      ? 'two banks of oar-benches down each side with the loom of the oars run in, the drum-master’s platform amidships, chained or free rowers at the thwarts'
+      : pw.mag
+        ? 'the ship’s beating heart: '+pw.note.replace(/^[A-Z ]+POWER:\s*/,'')+'; warded circles chalked on the deck, arcane conduits running up through the keelson, a warning-line no unattuned crewman may cross'
+        : 'the drive-space';
+    add('power', {name:pw.deck, feat:powerFeat});
+  }
+  // below
+  add('cargo');
+  if(nDecks>=4) add('orlop');
+  if(ship.arms.n>=8) add('magazine');
+  if(nDecks>=5 || chance(.4)) add('hold');
+  // renumber & prompt
+  decks.forEach((d,i)=>{ d.n=i+1; d.mapPrompt=deckMapPrompt(ship, d); });
+  return decks;
+}
+function deckMapPrompt(ship, d){
+  const lower = ['cargo','orlop','hold','magazine'].includes(d.tag) || (d.tag==='power' && !/^Rowing/.test(d.name));
+  const light = d.tag==='weather'||d.tag==='quarter' ? 'open sky, daylight and sea-spray'
+    : d.tag==='power' ? 'lit by the eerie glow of the drive'
+    : lower ? 'deep shadow lit by shuttered lanterns' : 'warm lantern-light, low beams overhead';
+  const hullMag = ship.hullData.mag ? ' The hull planking shows faint '+(ship.hullData.k==='dragonbone'?'bone ribbing':ship.hullData.k==='coral'?'living coral growth':'glowing sigils')+'.' : '';
+  return 'Top-down orthographic fantasy battle-map of the '+d.name+' of '+ship.name+', a '
+    + ship.sizeShort+' '+ship.roleData.l.toLowerCase()+', drawn on a 5-foot square grid, bow to the north. '
+    + cap(d.feat)+'.'+hullMag+' Tapered wooden hull with planked decking and clear bulkheads and hatches, '
+    + light+'. Grounded painterly VTT ship map, top-down, deck-plan only, no legible text, no labels, no watermark.';
+}
+
+/* --- schematic cross-section --------------------------------------------- */
+function crossSvg(ship){
+  const decks=ship.decks, N=decks.length;
+  const W=680, PAD=22, HULLW=W-PAD*2, DH=Math.max(34, Math.min(58, Math.round(300/N)));
+  const H = PAD*2 + N*DH + 26;
+  const colOf=t=>({weather:'#2f4a37',quarter:'#33463f',cabin:'#3a3450',gun:'#4a2f2f',berth:'#3a3320',cargo:'#2c2f38',orlop:'#262b35',hold:'#20242c',magazine:'#4a4020',power:'#243a45'}[t]||'#262b35');
+  let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:'+W+'px;height:auto" xmlns="http://www.w3.org/2000/svg" font-family="Georgia, serif">';
+  // waterline
+  const wlY = PAD + Math.min(N, (function(){ let i=decks.findIndex(d=>['cargo','orlop','hold','magazine'].includes(d.tag)); return i<0?N-1:i; })())*DH;
+  // hull outline (side elevation, bow right)
+  const topY=PAD, botY=PAD+N*DH;
+  s+='<path d="M'+PAD+' '+topY+' L'+(W-PAD-70)+' '+topY+' Q'+(W-PAD)+' '+topY+' '+(W-PAD)+' '+((topY+botY)/2)
+    +' Q'+(W-PAD)+' '+(botY-6)+' '+(W-PAD-90)+' '+botY+' L'+(PAD+30)+' '+botY+' Q'+PAD+' '+botY+' '+PAD+' '+(botY-24)+' Z" fill="#171a20" stroke="#6b5d3f" stroke-width="2.5"/>';
+  // sea shading below waterline
+  s+='<rect x="'+PAD+'" y="'+wlY+'" width="'+HULLW+'" height="'+(botY-wlY)+'" fill="rgba(111,168,201,.05)"/>';
+  s+='<line x1="'+PAD+'" y1="'+wlY+'" x2="'+(W-PAD)+'" y2="'+wlY+'" stroke="#6fa8c9" stroke-width="1.5" stroke-dasharray="6 5" opacity=".55"/>';
+  s+='<text x="'+(W/2)+'" y="'+(wlY-5)+'" text-anchor="middle" fill="#6fa8c9" font-size="10" opacity=".85">▽ waterline</text>';
+  decks.forEach((d,i)=>{
+    const y=PAD+i*DH;
+    if(i>0) s+='<line x1="'+PAD+'" y1="'+y+'" x2="'+(W-PAD)+'" y2="'+y+'" stroke="#3a4150" stroke-width="1"/>';
+    s+='<rect x="'+(PAD+2)+'" y="'+(y+2)+'" width="26" height="'+(DH-4)+'" rx="4" fill="'+colOf(d.tag)+'" stroke="#d8b35c" stroke-width="1"/>';
+    s+='<text x="'+(PAD+15)+'" y="'+(y+DH/2+5)+'" text-anchor="middle" fill="#e8e4d8" font-size="14" font-weight="bold">'+d.n+'</text>';
+    s+='<text x="'+(PAD+38)+'" y="'+(y+DH/2+5)+'" fill="#cfc7b4" font-size="13">'+esc(d.name)+'</text>';
+    s+='<text x="'+(W-PAD-8)+'" y="'+(y+DH/2+4)+'" text-anchor="end" fill="#7f8a99" font-size="10" font-style="italic">'+esc(d.tag==='power'?'drive':d.tag)+'</text>';
+  });
+  return s+'</svg>';
+}
+
+/* --- five-beat history / ship's chronicle -------------------------------- */
+function buildChronicle(ship){
+  const rk=ship.reck.rk, now=ship.now;
+  const age = ship.hullData.mag && chance(.4) ? ri(60,400) : ri(4,80);
+  const laid = now-age;
+  const E=(year,label,text)=>({year,rk,label,text});
+  const out=[];
+  const yard=pick(['the '+placeName()+' yards','Master '+personName().split(' ')[1]+'’s yard','the naval slips at '+placeName(),'a hidden yard in '+placeName(),'the drowned dock at '+placeName()]);
+  const wright=ship.shipwright=personName();
+  // 1 — laid down / launched
+  out.push(E(laid,'Launched', 'Laid down and launched at '+yard+', built of '+ship.hullData.l+' to the order of '+pick(['a merchant-consortium','the Admiralty','a masked patron','a dying sea-lord',''+wright+', who would also captain her'])+'.'));
+  // 2 — maiden voyage / first act
+  let y=laid+ri(1,4);
+  out.push(E(y,'Maiden voyage', pick([
+    'Ran her maiden voyage across '+pick(SEAS)+' and came home '+pick(['a week early and full to the gunwales','with half her crew and twice her worth in cargo','flying a flag no one recognized']),
+    'Made her name carrying '+pick(['the '+placeName()+' silver','pilgrims to the '+pick(SHIP_SAINT).replace(/^the |^Saint /,'')+' shrine','a cargo that was never entered in any manifest'])+' — and outran the ships sent to stop her',
+    'Her first master, '+personName()+', drove her '+pick(['to a record crossing of '+pick(SEAS),'onto a reef and off again by a miracle','through the '+pick(['blockade','ice','plague-quarantine'])+' at '+placeName()])
+  ])));
+  // 3 — a famous battle or storm
+  y+=ri(2,12);
+  const foe=pick(['a '+pick(['corsair squadron','revenue cutter','rival privateer','sea-serpent','kraken','ghost-fleet'])]);
+  out.push(E(y,'Trial by '+pick(['fire','storm','sea']), pick([
+    'Fought '+foe+' off '+placeName()+' and won — the scars in the '+pick(['starboard rail','foremast','great cabin'])+' were never sanded out, on the master’s orders',
+    'Rode out the '+pick(['Long Gale','black squall','tempest that drowned '+placeName()])+' that sank '+ri(3,19)+' ships around her, and was afterward called '+pick(['lucky','cursed','god-touched','unsinkable']),
+    'Took '+foe+' as a prize in a single glass of fighting; the tale is told in every '+pick(['tavern','wardroom','longhouse'])+' from '+placeName()+' to '+placeName()
+  ])));
+  // 4 — the dark turn
+  y+=ri(2,14);
+  ship.darkYear=y;
+  out.push(E(y,pick(['Mutiny','Loss','The turn','Disaster']), pick([
+    'Her crew '+pick(['mutinied off','vanished to a man near','turned on their captain at'])+' '+placeName()+'; '+pick(['she changed hands and colors that night','only the ship’s cat was found still aboard','the new master burned the old logbook']),
+    'Went missing in '+pick(SEAS)+' for '+ri(2,19)+' '+pick(['months','years'])+' and came back '+pick(['changed','with a hold full of things that should not float','crewed by strangers who spoke of her as home','riding low and silent']),
+    'Was '+pick(['taken by pirates','impounded at '+placeName(),'sold to settle a dead man’s debts','wrecked and refloated','condemned and then quietly recommissioned'])+', and has answered to '+pick(['three names','a stolen name','no honest owner'])+' since'
+  ])));
+  // 5 — present
+  ship.captain = ship.crew.roster.find(o=>o.role==='Captain');
+  out.push(E(now-ri(0,2),'Now', pick([
+    'These days she works '+pick(SEAS)+' under '+(ship.captain?ship.captain.name:personName())+', '+ship.roleData.l.toLowerCase()+' by trade and '+pick(['something else by night','honest when watched','one bad season from the breaker’s yard']),
+    'She lies at anchor in '+placeName()+' as this is written, '+pick(['taking on crew','under quiet repair','waiting on a cargo no one will name','one signature from a voyage she may not survive']),
+    'Right now she is '+pick(['for hire to anyone with coin and nerve','running a course her own captain doesn’t fully understand','the last hope of '+placeName(),'exactly where the party needs a ship to be'])
+  ])));
+  // normalize non-decreasing, clamp to now
+  for(let i=1;i<out.length;i++){ if(out[i].year<out[i-1].year) out[i].year=out[i-1].year; }
+  const last=out[out.length-1].year; if(last>now){ const sh=last-now; out.forEach(e=>e.year-=sh); }
+  ship.laid=out[0].year; ship.age=now-out[0].year;
+  return out;
+}
+
+/* --- quirk / boon / curse ------------------------------------------------ */
+function buildQuirk(origin){
+  const byTone={
+    heroic:['answers her helm a half-beat faster than she has any right to','has never lost a crewman overboard, in living memory','carries a battle-standard the enemy learns to fear'],
+    grim:['leaks a little from a wound that never fully healed','smells of tar, blood, and old money','has a name painted over an older, scratched-out one'],
+    mythic:['is older than her own papers, and no yard admits to building her','appears in sea-charts drawn a century before her launch','is said to be one of seven sister-ships, the rest long lost'],
+    eerie:['keeps a light burning in a cabin no one is billeted to','sounds, on the middle watch, like a second crew working below','has one compass that always points a few degrees wrong — toward something'],
+    sacred:['rings her own bell at dawn with no hand on the rope','cannot be boarded by the unwelcome while the shrine-lamp burns','shelters any soul who sets foot aboard fleeing death'],
+    cursed:['takes one soul from every crew, and always the one who mocked her','will not sink until a debt is paid, and the debt is never quite paid','shows the drowned faces of former crew in her wake'],
+    whimsical:['is captained, in law, by a cat named on the ship’s articles','answers to a rude nickname and sulks at her proper one','has a figurehead that winks at children and no one else']
+  };
+  return {line: pick(byTone[origin.k]||byTone.grim)};
+}
+
+/* --- adventure hooks ----------------------------------------------------- */
+function buildHooks(ship){
+  const nm=ship.name, capt=ship.captain?ship.captain.name:personName();
+  return pickN([
+    capt+' needs a crew for one crossing of '+pick(SEAS)+' and won’t say what the cargo is — only that it must not be opened, and that the last crew to try it are not available to warn you.',
+    nm+' is up for sale at '+placeName()+' for a price so low it insults the buyer; the harbormaster will not meet your eye, and three previous owners have died aboard her within the year.',
+    'A dying sailor presses the party '+ship.name+'’s manifest into their hands — every line honest but the last, which names a hold that does not appear on any deck-plan of the ship.',
+    'The party wakes as passengers aboard '+nm+' with no memory of buying passage, the coast of '+placeName()+' already out of sight, and the '+pick(['captain','crew','ship herself'])+' clearly expecting them to know why they’re here.',
+    'Someone will pay a fortune to have '+nm+' '+pick(['sunk in deep water','brought quietly into '+placeName(),'boarded and her strongbox emptied','followed to wherever she really goes'])+' — and a second party is already asking the same questions you are.',
+    ship.captain? (ship.captain.name+', her captain, hires the party to hunt down '+pick(['the mutineers who stole her once','a sister-ship that shares her secret','the patron who commissioned her and then tried to have her burned'])+'.') : ('Her master is missing and the crew has chosen the party to find them before the '+pick(['owners','Admiralty','creditors'])+' impound '+nm+'.')
+  ], 3);
+}
+
+/* --- the vehicle stat block (5e-flavored) -------------------------------- */
+function buildStat(ship){
+  const s=ship.sizeData;
+  const hp=ri(s.hp[0],s.hp[1]);
+  const ac = s.ac + (ship.hullData.mag?1:0);
+  const dt = s.dt + (ship.hullData.k==='ironoak'?2:ship.hullData.k==='starforged'?5:0);
+  const comps=[
+    {n:'Hull', v:'AC '+ac+', HP '+commN(hp)+', damage threshold '+dt},
+    {n:'Helm', v:'AC '+(ac+2)+', HP '+ri(40,90)+'; if destroyed she cannot be steered'},
+    {n: ship.powerData[0].cat==='oar'?'Oars ('+(ri(10,30)*2)+')':'Sails / Drive', v:'AC '+(ac-1)+', HP '+ri(60,180)+'; speed halves if reduced to half'},
+    ...(ship.arms.n>0?[{n:'Weapons ('+ship.arms.n+')', v:ship.arms.type+', AC '+(ac+1)+', HP '+ri(40,90)+' each'}]:[])
+  ];
+  const mishap = ship.hullData.mag?'19–20':'18–20';
+  return {hp, ac, dt, comps, mishap, spd:s.spd};
+}
+
+/* --- assemble the pure core ---------------------------------------------- */
+function buildShipCore(opts){
+  opts=opts||{};
+  const sizeData = opts.size ? SIZES.find(s=>s.k===opts.size) : pick(SIZES);
+  // hull honoring the mundane/magical filter
+  let hullPool=HULLS;
+  if(opts.hull==='mundane') hullPool=HULLS.filter(h=>!h.mag);
+  else if(opts.hull==='magical') hullPool=HULLS.filter(h=>h.mag);
+  else if(opts.hull && opts.hull!=='any') hullPool=HULLS.filter(h=>h.k===opts.hull);
+  const hullData = pick(hullPool.length?hullPool:HULLS);
+  // power honoring the category filter; can be 1 or (sometimes) 2
+  let powerPool=POWERS;
+  if(opts.power && opts.power!=='any'){
+    powerPool = POWERS.filter(p=> opts.power==='magical'?p.mag : opts.power==='mundane'?!p.mag : p.cat===opts.power);
+  }
+  const primary = pick(powerPool.length?powerPool:POWERS);
+  const powerData=[primary];
+  // a magical drive often keeps a mundane backup rig (sail/oar) for harbor work — but a
+  // mundane primary stands alone, so we never print "sail + oar + sail".
+  if(primary.mag && primary.cat!=='sky' && chance(.45)){ const extra=POWERS.filter(p=>!p.mag && (p.k==='wind'||p.k==='oar')); if(extra.length) powerData.push(pick(extra)); }
+  const roleData = opts.role && opts.role!=='any' ? ROLES.find(r=>r.k===opts.role) : pick(ROLES);
+  const originData = opts.origin && opts.origin!=='any' ? ORIGINS.find(o=>o.k===opts.origin) : pick(ORIGINS);
+
+  const ship={};
+  ship.name = shipName();
+  ship.sizeData = sizeData; ship.sizeShort = sizeData.l.split(' / ')[0].replace(/ \(.*/,'');
+  ship.hullData = hullData;
+  ship.powerData = powerData;
+  ship.roleData = roleData;
+  ship.originData = originData;
+  ship.reck = pick(RECKON);
+  ship.now = ri(880,1620);
+  ship.homeport = placeName();
+  ship.tonnage = ri(sizeData.tons[0], sizeData.tons[1]);
+  ship.value = round5(ship.tonnage*ri(45,140) + (hullData.mag?ri(8000,60000):0) + powerData.filter(p=>p.mag).length*ri(6000,40000));
+  ship.flag = pick(['a '+pick(['black','crimson','sea-green','storm-grey','gold','bone-white'])+' field bearing '+pick(['a white gull','a broken anchor','a serpent swallowing a star','a single open eye','crossed harpoons','a drowned crown','a lantern in a fist','three silver drops'])]);
+  ship.figurehead = pick(['a screaming '+pick(['harpy','mermaid','kraken']),'a robed woman holding a lantern','a leaping marlin picked out in gold-leaf','a snarling wolf’s head','a blindfolded saint','a coiled serpent, its eyes set with real gems','a plain, weathered ram’s skull','no figurehead at all — the prow is scarred where one was torn away']);
+  ship.quirk = buildQuirk(originData);
+  // systems that depend on the above
+  ship.arms = buildArms(sizeData, powerData.some(p=>p.mag));
+  ship.crew = buildCrew(sizeData, ship.arms.n, powerData.some(p=>p.mag));
+  ship.chronicle = buildChronicle(ship);   // sets captain, shipwright, laid, age
+  ship.decks = buildDecks(ship);            // each deck gets a mapPrompt
+  ship.stat = buildStat(ship);
+  ship.hooks = buildHooks(ship);
+  ship.quote = pick([
+    'She’ll swim when better ships are kindling.',
+    'Every plank of her is paid for in someone’s bad luck.',
+    'Don’t name her unkindly where she can hear.',
+    'You don’t sail her. You come to an arrangement.',
+    'Fast, dry, and honest — pick two.',
+    'The sea gave her up once. It’ll want her back.'
+  ]);
+  return ship;
+}
+
+/* ===========================================================================
+   THE 1,000-HULL CORPUS
+   =========================================================================== */
+let SHIP_CORPUS=[];
+function ensureCorpus(){
+  if(SHIP_CORPUS.length) return SHIP_CORPUS;
+  const seen=new Set(); let guard=0;
+  while(SHIP_CORPUS.length<1000 && guard++<6000){
+    const c=buildShipCore({});
+    const key=c.name+'|'+c.sizeData.k+'|'+c.homeport;
+    if(seen.has(key)) continue; seen.add(key);
+    c._id=SHIP_CORPUS.length+1;
+    SHIP_CORPUS.push(c);
+  }
+  return SHIP_CORPUS;
+}
+/* pull one from the corpus honoring the dropdowns; fall back to building to
+   spec when the filter is too tight. */
+function drawFromCorpus(opts){
+  ensureCorpus();
+  const match=SHIP_CORPUS.filter(s=>{
+    if(opts.size && opts.size!=='any' && s.sizeData.k!==opts.size) return false;
+    if(opts.hull==='mundane' && s.hullData.mag) return false;
+    if(opts.hull==='magical' && !s.hullData.mag) return false;
+    if(opts.hull && !['any','mundane','magical'].includes(opts.hull) && s.hullData.k!==opts.hull) return false;
+    if(opts.power && opts.power!=='any'){
+      if(opts.power==='magical' && !s.powerData.some(p=>p.mag)) return false;
+      else if(opts.power==='mundane' && !s.powerData.some(p=>!p.mag)) return false;
+      else if(!['magical','mundane'].includes(opts.power) && !s.powerData.some(p=>p.cat===opts.power)) return false;
+    }
+    if(opts.role && opts.role!=='any' && s.roleData.k!==opts.role) return false;
+    if(opts.origin && opts.origin!=='any' && s.originData.k!==opts.origin) return false;
+    return true;
+  });
+  if(match.length) return match[ri(0,match.length-1)];
+  const built=buildShipCore(opts); built._id=0; built._toSpec=true; return built;
+}
+
+/* ===========================================================================
+   MARKDOWN EXPORT
+   =========================================================================== */
+function toMd(ship){
+  if(!ship) return '';
+  const pw=ship.powerData.map(p=>p.l).join(' + ');
+  let m='# '+ship.name+'\n*'+ship.sizeShort+' '+ship.roleData.l+' · '+cap(ship.originData.l.split(' — ')[0])+'*\n\n';
+  m+='> "'+ship.quote+'"\n\n';
+  m+='- **Class:** '+ship.sizeData.l+'\n';
+  m+='- **Hull:** '+ship.hullData.l+' — '+ship.hullData.note+'\n';
+  m+='- **Power:** '+pw+'\n';
+  m+='- **Crew complement:** '+ship.crew.complement+' (skeleton '+ship.crew.skeleton+', berths '+ship.crew.berths+')\n';
+  m+='- **Armament:** '+(ship.arms.n||'no')+' guns ('+ship.arms.type+'), broadside of '+ship.arms.perSide+'; '+ship.arms.exotic.join('; ')+'\n';
+  m+='- **Tonnage:** '+commN(ship.tonnage)+' tons · **Value:** '+commN(ship.value)+' gp\n';
+  m+='- **Home port:** '+ship.homeport+' · **Ensign:** '+ship.flag+'\n';
+  m+='- **Figurehead:** '+ship.figurehead+'\n';
+  m+='- **She '+ship.quirk.line+'.**\n\n';
+  m+='## History ('+ship.reck.name+')\n'+ship.chronicle.map(e=>'- **'+e.year+' '+e.rk+' — '+e.label+':** '+e.text+'.').join('\n')+'\n\n';
+  m+='## Officers & Crew\n';
+  m+='- Complement '+ship.crew.complement+' · '+ship.crew.hands+' hands · '+ship.crew.gunners+' gunners'+(ship.crew.specialists?(' · '+ship.crew.specialists+' specialists'):'')+'\n';
+  m+=ship.crew.roster.map(o=>'- **'+o.name+'** — '+o.role+'; '+o.note+'.').join('\n')+'\n\n';
+  m+='## Vehicle Stats\n- **AC** '+ship.stat.ac+' · **HP** '+commN(ship.stat.hp)+' · **Damage threshold** '+ship.stat.dt+' · **Speed** '+ship.stat.spd+'\n';
+  m+='- **Mishap on a natural** '+ship.stat.mishap+' (helm check)\n';
+  m+=ship.stat.comps.map(c=>'  - '+c.n+': '+c.v).join('\n')+'\n\n';
+  m+='## Decks & Battle-Map Prompts\n';
+  ship.decks.forEach(d=>{
+    m+='### Deck '+d.n+' — '+d.name+'\n'+cap(d.feat)+'.\n\n**Map prompt:** '+d.mapPrompt+'\n\n';
+  });
+  m+='## Hooks\n'+ship.hooks.map(h=>'- '+h).join('\n')+'\n';
+  return m;
+}
+
+/* ===========================================================================
+   RENDER — the dossier
+   =========================================================================== */
+function dossierHtml(ship){
+  const pw=ship.powerData.map(p=>p.l).join(' + ');
+  const magHull=ship.hullData.mag, magPower=ship.powerData.some(p=>p.mag);
+  const origin=ship.originData.l.split(' — ')[0];
+  const chips=[
+    '<span class="chip">'+ship.sizeShort+'</span>',
+    '<span class="chip g">'+commN(ship.crew.complement)+' crew</span>',
+    '<span class="chip">'+(ship.arms.n||'no')+' guns</span>',
+    magHull?'<span class="chip p">magic hull</span>':'',
+    magPower?'<span class="chip p">'+ship.powerData.find(p=>p.mag).short+'</span>':'',
+    (ship.originData.k==='cursed'||ship.originData.k==='eerie')?'<span class="chip r">'+origin+'</span>':'<span class="chip">'+origin+'</span>'
+  ].filter(Boolean).join('');
+
+  const hero='<div class="hero">'
+    +'<div class="sname">'+esc(ship.name)+'</div>'
+    +'<div class="sclass">'+esc(ship.sizeShort)+' · '+esc(ship.roleData.l)+'</div>'
+    +'<div class="smeta">Built of '+esc(ship.hullData.l)+', driven by '+esc(pw)+' · out of '+esc(ship.homeport)
+      +' · '+esc(ship.age>1?ship.age+' years afloat':'newly launched')+' (laid '+ship.laid+' '+ship.reck.rk+')</div>'
+    +'<div class="squote">“'+esc(ship.quote)+'”</div>'
+    +'<div class="chips">'+chips+'</div>'
+    +(ship._toSpec?'':'<div class="note" style="margin-top:11px">Hull '+commN(ship._id)+' of 1,000 in the fleet.</div>')
+    +'</div>';
+
+  // at-a-glance data grid (the "ten data points")
+  const glance='<div class="panel"><h3>⚓ Ship’s Particulars</h3><div class="grid2">'
+    +kv('Class',ship.sizeData.l)
+    +kv('Hull',ship.hullData.l+(magHull?' ✨':''))
+    +kv('Forms of power',pw+(magPower?' ✨':''))
+    +kv('Crew complement',commN(ship.crew.complement)+' hands (skeleton '+ship.crew.skeleton+', berths '+ship.crew.berths+')')
+    +kv('Armament',(ship.arms.n||'no')+' guns · broadside of '+ship.arms.perSide)
+    +kv('Tonnage',commN(ship.tonnage)+' tons burden')
+    +kv('Length',ri(ship.sizeData.len[0],ship.sizeData.len[1])+' ft. at the waterline')
+    +kv('Appraised value',commN(ship.value)+' gp')
+    +kv('Home port',ship.homeport)
+    +kv('Ensign',cap(ship.flag))
+    +kv('Figurehead',ship.figurehead)
+    +kv('Reputation',cap(ship.quirk.line))
+    +'</div>'
+    +(magHull?'<div class="note" style="margin-top:9px">✨ <b style="color:var(--purple)">Hull property.</b> '+esc(ship.hullData.note)+'.</div>':'')
+    +(magPower?'<div class="note" style="margin-top:5px">✨ <b style="color:var(--purple)">Drive.</b> '+esc(ship.powerData.find(p=>p.mag).note)+'.</div>':'')
+    +'</div>';
+
+  // history — five events
+  const history='<div class="panel"><h3>⏳ Ship’s History — '+esc(ship.reck.name)+'</h3>'
+    +'<div class="note" style="margin-bottom:9px">Five turns of her story, oldest first.</div>'
+    +'<ul class="tl">'+ship.chronicle.map(e=>'<li><span class="yr">'+e.year+' '+e.rk+'<small>'+esc(e.label)+'</small></span><span class="ev">'+esc(cap(e.text))+'.</span></li>').join('')+'</ul></div>';
+
+  // crew
+  const t=ship.crew;
+  const tally='<div class="tally">'
+    +tbox(t.complement,'complement')+tbox(t.skeleton,'skeleton')+tbox(t.hands,'hands')
+    +tbox(t.gunners,'gunners')+(t.specialists?tbox(t.specialists,'specialists'):'')+tbox(t.berths,'berths')+'</div>';
+  const crew='<div class="panel"><h3>🧭 Officers &amp; Crew</h3>'
+    +'<div class="crewgrid">'+t.roster.map(o=>'<div class="crewbox"><div class="cn">'+esc(o.name)+'</div><div class="cr">'+esc(o.role)+'</div><div class="cq">'+esc(cap(o.note))+'.</div></div>').join('')+'</div>'
+    +tally+'</div>';
+
+  // armament
+  const arms='<div class="panel"><h3>💥 Armament</h3>'
+    +'<div class="kv"><b>Battery.</b> '+(ship.arms.n||'No')+' '+esc(ship.arms.type)+' — a broadside of '+ship.arms.perSide+' a side.</div>'
+    +'<div class="kv"><b>Also aboard.</b> '+esc(cap(ship.arms.exotic.join('; ')))+'.</div>'
+    +'<div class="kv"><b>Boarders.</b> She can throw roughly '+ship.arms.boarding+' armed hands across in a boarding action.</div></div>';
+
+  // cross-section + decks
+  let decksHtml='<div class="panel"><h3>🗺 Decks &amp; Battle-Map Prompts</h3>'
+    +'<div class="note" style="margin-bottom:9px">A side-on cut of the hull, decks numbered top to keel. Every deck below carries its own top-down battle-map prompt — copy it into your image generator for an instant VTT map.</div>'
+    +'<div class="xwrap">'+crossSvg(ship)+'</div>';
+  ship.decks.forEach(d=>{
+    decksHtml+='<div class="deck" id="deck'+d.n+'">'
+      +'<div class="dh"><span class="dn">'+d.n+'. '+esc(d.name)+'</span><span class="dtag">'+esc(d.tag==='power'?'drive':d.tag)+'</span></div>'
+      +'<div class="dnote">'+esc(cap(d.feat))+'.</div>'
+      +'<div class="prompt-lbl">🎨 Battle-map prompt</div>'
+      +'<div class="prompt" id="prompt'+d.n+'">'+esc(d.mapPrompt)+'</div>'
+      +'<button class="btn mini" onclick="ODYSSEY.copyDeck('+d.n+',this)">📋 Copy prompt</button>'
+      +'</div>';
+  });
+  decksHtml+='</div>';
+
+  // stat block
+  const st=ship.stat;
+  const stat='<div class="panel"><h3>⚙ Vehicle Stat Block</h3><div class="stat">'
+    +'<div class="line"><b>Armor Class</b> '+st.ac+' &nbsp;·&nbsp; <b>Hit Points</b> '+commN(st.hp)+' &nbsp;·&nbsp; <b>Damage Threshold</b> '+st.dt+'</div>'
+    +'<div class="line"><b>Speed</b> '+esc(st.spd)+'</div>'
+    +'<div class="line"><b>Mishap</b> a helm check that rolls a natural '+st.mishap+' courts disaster — a fouled line, a cracked spar, a wave taken wrong</div>'
+    +'<div class="rule"></div>'
+    +'<div class="line"><b>Components</b></div>'
+    +'<div class="comps">'+st.comps.map(c=>'<div class="comp"><div class="cn2">'+esc(c.n)+'</div>'+esc(c.v)+'</div>').join('')+'</div>'
+    +'<div class="note" style="margin-top:9px">Numbers are tuned for 5e-style vehicle combat; adjust the threshold and HP to your table. A ship at 0 HP is sinking, not gone — give the party a scene to save her.</div>'
+    +'</div></div>';
+
+  // hooks
+  const hooks='<div class="panel"><h3>🪝 Hooks — getting the party aboard</h3>'
+    +ship.hooks.map(h=>'<div class="hook">'+esc(cap(h))+'</div>').join('')+'</div>';
+
+  return '<div class="ship-root">'+hero+glance+history+crew+arms+decksHtml+stat+hooks+'</div>';
+}
+function kv(k,v){ return '<div class="kv"><span class="lead">'+esc(k)+':</span> '+esc(v)+'</div>'; }
+function tbox(v,k){ return '<div class="t"><div class="tv">'+commN(v)+'</div><div class="tk">'+esc(k)+'</div></div>'; }
+
+/* ---- clipboard helpers -------------------------------------------------- */
+function copyText(txt, btn, oklabel){
+  const done=()=>{ if(btn){ const t=btn.textContent; btn.textContent=oklabel||'✓ Copied'; setTimeout(()=>btn.textContent=t,1400);} };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,()=>fallback(txt,done)); }
+  else fallback(txt,done);
+}
+function fallback(txt,done){ try{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); }catch(e){ alert('Copy failed — here it is:\n\n'+txt); } }
+
+return {
+  SIZES, HULLS, POWERS, ROLES, ORIGINS,
+  buildShipCore, ensureCorpus, drawFromCorpus, dossierHtml, toMd,
+  corpusLen:()=>SHIP_CORPUS.length, corpus:()=>SHIP_CORPUS,
+  copyText,
+  copyDeck(n, btn){ const el=document.getElementById('prompt'+n); if(el) copyText(el.textContent, btn, '✓ Copied — paste into your image tool'); },
+};
+})();
+
+/* =========================================================================
+   PAGE GLUE — dropdowns, forge, fleet browser
+   ========================================================================= */
+let CURRENT=null;
+const O=window.ODYSSEY;
+
+function opt(v,l,sel){ return '<option value="'+v+'"'+(v===sel?' selected':'')+'>'+l+'</option>'; }
+function renderControls(){
+  const sizeOpts=opt('any','Any size','any')+O.SIZES.map(s=>opt(s.k,s.l.split(' (')[0],'any')).join('');
+  const hullOpts=opt('any','Any hull','any')+opt('mundane','Mundane hull','any')+opt('magical','✨ Magical hull','any')
+    +O.HULLS.filter(h=>h.mag).map(h=>opt(h.k,'  └ '+h.l,'any')).join('');
+  const powerCats=[['any','Any power'],['mundane','Mundane (sail/oar)'],['magical','✨ Any magical'],['elemental','Bound elemental'],['arcane','Arcane (leyline/rune)'],['necrotic','Necrotic (soul/dead)'],['divine','Divine wind'],['sky','✨ Skyship (flies)']];
+  const powerOpts=powerCats.map(([v,l])=>opt(v,l,'any')).join('');
+  const roleOpts=opt('any','Any trade','any')+O.ROLES.map(r=>opt(r.k,r.l,'any')).join('');
+  const originOpts=opt('any','Any origin','any')+O.ORIGINS.map(o=>opt(o.k,o.l.split(' — ')[0],'any')).join('');
+  document.getElementById('controls').innerHTML=
+     fld('Size','sel-size',sizeOpts)
+    +fld('Hull','sel-hull',hullOpts)
+    +fld('Form of power','sel-power',powerOpts)
+    +fld('Trade / role','sel-role',roleOpts)
+    +fld('Origin','sel-origin',originOpts)
+    +'<div class="grow"></div>'
+    +'<button class="btn primary" onclick="forge()">⚓ Forge a Ship</button>'
+    +'<button class="btn" onclick="forge()" title="Same filters, new ship">↻ Reroll</button>'
+    +'<button class="btn" onclick="copyMd(this)">⧉ Copy Markdown</button>';
+}
+function fld(label,id,opts){ return '<div class="fld"><span class="lbl">'+label+'</span><select id="'+id+'">'+opts+'</select></div>'; }
+
+function readOpts(){
+  const g=id=>{const e=document.getElementById(id);return e?e.value:'any';};
+  return {size:g('sel-size'),hull:g('sel-hull'),power:g('sel-power'),role:g('sel-role'),origin:g('sel-origin')};
+}
+function forge(){
+  CURRENT=O.drawFromCorpus(readOpts());
+  document.getElementById('fleet').classList.add('hidden');
+  document.getElementById('dossier').innerHTML=O.dossierHtml(CURRENT);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function copyMd(btn){ if(!CURRENT){alert('Forge a ship first.');return;} O.copyText(O.toMd(CURRENT), btn, '✓ Markdown copied'); }
+
+/* ---- fleet browser: proves the 1,000 corpus and lets you load any hull --- */
+let fleetShown=0, FLEET_PAGE=40;
+function toggleFleet(){
+  const f=document.getElementById('fleet');
+  if(f.classList.contains('hidden')){ openFleet(); } else { f.classList.add('hidden'); }
+}
+function openFleet(){
+  O.ensureCorpus();
+  const f=document.getElementById('fleet'); f.classList.remove('hidden');
+  f.innerHTML='<div class="panel" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px">'
+    +'<h3 style="color:var(--gold);font-size:14px;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:11px">⚓ The Fleet — '+O.corpusLen().toLocaleString()+' hulls</h3>'
+    +'<div class="fleetsearch"><input id="fleetq" placeholder="Search by name, class, trade, home port…" oninput="filterFleet()"><span class="note" id="fleetcount"></span></div>'
+    +'<div id="fleetlist"></div>'
+    +'<div style="text-align:center;margin-top:10px"><button class="btn" id="morebtn" onclick="moreFleet()">Show more ↓</button></div></div>';
+  fleetShown=0; renderFleet(O.corpus());
+}
+function fleetRow(s){
+  return '<div class="fleetrow" onclick="loadFleet('+s._id+')">'
+    +'<span class="fno">#'+s._id+'</span>'
+    +'<span class="fnm">'+esc(s.name)+'</span>'
+    +'<span class="fcl">'+esc(s.sizeShort)+' · '+esc(s.hullData.l)+' · '+esc(s.powerData.map(p=>p.short).join('+'))+' · '+esc(s.homeport)+'</span>'
+    +'<span class="frole">'+esc(s.roleData.l)+'</span></div>';
+}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+let FLEET_FILTERED=null;
+function renderFleet(list){
+  FLEET_FILTERED=list;
+  const slice=list.slice(0,fleetShown+FLEET_PAGE); fleetShown=slice.length;
+  document.getElementById('fleetlist').innerHTML=slice.map(fleetRow).join('')||'<div class="note">No hull in the fleet matches that.</div>';
+  document.getElementById('fleetcount').textContent=list.length.toLocaleString()+' match';
+  document.getElementById('morebtn').style.display = fleetShown<list.length?'':'none';
+}
+function moreFleet(){ renderFleet(FLEET_FILTERED||O.corpus()); }
+function filterFleet(){
+  const q=document.getElementById('fleetq').value.toLowerCase().trim();
+  fleetShown=0;
+  if(!q){ renderFleet(O.corpus()); return; }
+  const list=O.corpus().filter(s=>(s.name+' '+s.sizeShort+' '+s.hullData.l+' '+s.roleData.l+' '+s.homeport+' '+s.powerData.map(p=>p.short).join(' ')).toLowerCase().includes(q));
+  renderFleet(list);
+}
+function loadFleet(id){
+  const s=O.corpus().find(x=>x._id===id); if(!s)return;
+  CURRENT=s;
+  document.getElementById('fleet').classList.add('hidden');
+  document.getElementById('dossier').innerHTML=O.dossierHtml(s);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---- boot --------------------------------------------------------------- */
+renderControls();
+O.ensureCorpus();
+forge();
+</script>
+</body>
+</html>
