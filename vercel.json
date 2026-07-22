@@ -2,6 +2,12 @@
   "version": 2,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/exodyssey", "destination": "/public/exodyssey.html" },
+    { "source": "/exodyssey.html", "destination": "/public/exodyssey.html" },
+    { "source": "/ship-maker", "destination": "/public/exodyssey.html" },
+    { "source": "/companion", "destination": "/public/companion.html" },
+    { "source": "/companion.html", "destination": "/public/companion.html" },
+    { "source": "/ex-novo", "destination": "/public/companion.html" },
     { "source": "/(.*)", "destination": "/public/index.html" }
   ]
 }
